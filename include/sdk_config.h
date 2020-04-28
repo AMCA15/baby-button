@@ -11588,6 +11588,12 @@
 #define BLE_LNS_BLE_OBSERVER_PRIO 2
 #endif
 
+// <o> BLE_MAS_BLE_OBSERVER_PRIO  
+// <i> Priority with which BLE events are dispatched to the Monitor Activity Service.
+#ifndef BLE_MAS_BLE_OBSERVER_PRIO
+#define BLE_MAS_BLE_OBSERVER_PRIO 2
+#endif
+
 // <o> BLE_NUS_BLE_OBSERVER_PRIO  
 // <i> Priority with which BLE events are dispatched to the UART Service.
 
