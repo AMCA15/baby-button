@@ -85,14 +85,23 @@
 #include "nrf_ringbuf.h"
 #include "SEGGER_RTT.h"
 
+#include "ble_dis.h"
+#include "ble_bas.h"
+
+#include "sensors.h"
 
 #define DEVICE_NAME                     "Nordic_Template"                       /**< Name of device. Will be included in the advertising data. */
 #define MANUFACTURER_NAME               "NordicSemiconductor"                   /**< Manufacturer. Will be passed to Device Information Service. */
-#define APP_ADV_INTERVAL                300                                     /**< The advertising interval (in units of 0.625 ms. This value corresponds to 187.5 ms). */
+#define MODEL_NUM                       "nRF52"                                 /**< Model number. Will be passed to Device Information Service. */
+#define HARDWARE_REV                    "A"                                     /**< Hardware revision. Will be passed to Device Information Service. */
+#define FIRMWARE_REV                    "1.0"                                   /**< Firmware revision. Will be passed to Device Information Service. */
 
+#define APP_ADV_INTERVAL                300                                     /**< The advertising interval (in units of 0.625 ms. This value corresponds to 187.5 ms). */
 #define APP_ADV_DURATION                18000                                   /**< The advertising duration (180 seconds) in units of 10 milliseconds. */
 #define APP_BLE_OBSERVER_PRIO           3                                       /**< Application's BLE observer priority. You shouldn't need to modify this value. */
 #define APP_BLE_CONN_CFG_TAG            1                                       /**< A tag identifying the SoftDevice BLE configuration. */
+
+#define BATTERY_LEVEL_MEAS_INTERVAL     APP_TIMER_TICKS(120000)                 /**< Battery level measurement interval (ticks). */
 
 #define MIN_CONN_INTERVAL               MSEC_TO_UNITS(100, UNIT_1_25_MS)        /**< Minimum acceptable connection interval (0.1 seconds). */
 #define MAX_CONN_INTERVAL               MSEC_TO_UNITS(200, UNIT_1_25_MS)        /**< Maximum acceptable connection interval (0.2 second). */
@@ -125,10 +134,14 @@ static uint16_t m_conn_handle = BLE_CONN_HANDLE_INVALID;                        
  *  BLE_XYZ_DEF(m_xyz);
  */
 
+BLE_BAS_DEF(m_bas);
+APP_TIMER_DEF(m_battery_timer_id);                                  /**< Battery timer. */
+
 // YOUR_JOB: Use UUIDs for service(s) used in your application.
 static ble_uuid_t m_adv_uuids[] =                                               /**< Universally unique service identifiers. */
 {
-    {BLE_UUID_DEVICE_INFORMATION_SERVICE, BLE_UUID_TYPE_BLE}
+    {BLE_UUID_DEVICE_INFORMATION_SERVICE, BLE_UUID_TYPE_BLE},
+    {BLE_UUID_BATTERY_SERVICE, BLE_UUID_TYPE_BLE},
 };
 
 
@@ -183,6 +196,8 @@ static void timers_init(void)
     ret_code_t err_code = app_timer_init();
     APP_ERROR_CHECK(err_code);
 
+    err_code = app_timer_create(&m_battery_timer_id, APP_TIMER_MODE_REPEATED, battery_level_meas_timeout_handler);
+    APP_ERROR_CHECK(err_code);
     // Create timers.
 
     /* YOUR_JOB: Create any timers to be used by the application.
@@ -283,11 +298,36 @@ static void services_init(void)
 {
     ret_code_t         err_code;
     nrf_ble_qwr_init_t qwr_init = {0};
+    ble_dis_init_t     dis_init;
+    ble_bas_init_t     bas_init;
 
     // Initialize Queued Write Module.
     qwr_init.error_handler = nrf_qwr_error_handler;
 
     err_code = nrf_ble_qwr_init(&m_qwr, &qwr_init);
+    APP_ERROR_CHECK(err_code);
+
+    // Initialize Battery Service.
+    memset(&bas_init, 0, sizeof(bas_init));
+
+    bas_init.support_notification = false;
+    bas_init.initial_batt_level   = 100;
+    bas_init.bl_rd_sec            = SEC_OPEN;
+
+    err_code = ble_bas_init(&m_bas, &bas_init);
+    APP_ERROR_CHECK(err_code);
+
+    // Initialize Device Information Service.
+    memset(&dis_init, 0, sizeof(dis_init));
+
+    ble_srv_ascii_to_utf8(&dis_init.manufact_name_str, (char *)MANUFACTURER_NAME);
+    ble_srv_ascii_to_utf8(&dis_init.model_num_str, (char *)MODEL_NUM);
+    ble_srv_ascii_to_utf8(&dis_init.hw_rev_str, (char *)HARDWARE_REV);
+    ble_srv_ascii_to_utf8(&dis_init.fw_rev_str, (char *)FIRMWARE_REV);
+
+    dis_init.dis_char_rd_sec = SEC_OPEN;
+
+    err_code = ble_dis_init(&dis_init);
     APP_ERROR_CHECK(err_code);
 
     /* YOUR_JOB: Add code to initialize the services used by the application.
@@ -374,6 +414,9 @@ static void conn_params_init(void)
  */
 static void application_timers_start(void)
 {
+    ret_code_t err_code;
+    err_code = app_timer_start(m_battery_timer_id, BATTERY_LEVEL_MEAS_INTERVAL, &m_bas);
+    APP_ERROR_CHECK(err_code);
     /* YOUR_JOB: Start your timers. below is an example of how to start a timer.
        ret_code_t err_code;
        err_code = app_timer_start(m_app_timer_id, TIMER_INTERVAL, NULL);
@@ -712,6 +755,7 @@ int main(void)
     // Initialize.
     log_init();
     timers_init();
+    sensors_init();
     // buttons_leds_init(&erase_bonds);
     power_management_init();
     ble_stack_init();
