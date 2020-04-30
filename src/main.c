@@ -87,6 +87,7 @@
 
 #include "ble_dis.h"
 #include "ble_bas.h"
+#include "ble_mas.h"
 
 #include "sensors.h"
 
@@ -102,6 +103,7 @@
 #define APP_BLE_CONN_CFG_TAG            1                                       /**< A tag identifying the SoftDevice BLE configuration. */
 
 #define BATTERY_LEVEL_MEAS_INTERVAL     APP_TIMER_TICKS(120000)                 /**< Battery level measurement interval (ticks). */
+#define LSM9DS1_MEAS_INTERVAL           APP_TIMER_TICKS(1000)                   /**< LSM9DS1's measurement interval (ticks). */
 
 #define MIN_CONN_INTERVAL               MSEC_TO_UNITS(100, UNIT_1_25_MS)        /**< Minimum acceptable connection interval (0.1 seconds). */
 #define MAX_CONN_INTERVAL               MSEC_TO_UNITS(200, UNIT_1_25_MS)        /**< Maximum acceptable connection interval (0.2 second). */
@@ -134,8 +136,10 @@ static uint16_t m_conn_handle = BLE_CONN_HANDLE_INVALID;                        
  *  BLE_XYZ_DEF(m_xyz);
  */
 
-BLE_BAS_DEF(m_bas);
+BLE_MAS_DEF(m_mas);                                                 /**< Monitor Activity service instance. */
+BLE_BAS_DEF(m_bas);                                                 /**< Structure used to identify the battery service. */
 APP_TIMER_DEF(m_battery_timer_id);                                  /**< Battery timer. */
+APP_TIMER_DEF(m_lsm9ds1_timer_id);                                  /**< LSM9DS1 timer. */
 
 // YOUR_JOB: Use UUIDs for service(s) used in your application.
 static ble_uuid_t m_adv_uuids[] =                                               /**< Universally unique service identifiers. */
@@ -197,6 +201,8 @@ static void timers_init(void)
     APP_ERROR_CHECK(err_code);
 
     err_code = app_timer_create(&m_battery_timer_id, APP_TIMER_MODE_REPEATED, battery_level_meas_timeout_handler);
+    APP_ERROR_CHECK(err_code);
+    err_code = app_timer_create(&m_lsm9ds1_timer_id, APP_TIMER_MODE_REPEATED, lsm9ds1_meas_timeout_handler);
     APP_ERROR_CHECK(err_code);
     // Create timers.
 
@@ -300,6 +306,7 @@ static void services_init(void)
     nrf_ble_qwr_init_t qwr_init = {0};
     ble_dis_init_t     dis_init;
     ble_bas_init_t     bas_init;
+    ble_mas_init_t     mas_init;
 
     // Initialize Queued Write Module.
     qwr_init.error_handler = nrf_qwr_error_handler;
@@ -328,6 +335,20 @@ static void services_init(void)
     dis_init.dis_char_rd_sec = SEC_OPEN;
 
     err_code = ble_dis_init(&dis_init);
+    APP_ERROR_CHECK(err_code);
+    
+    // Initialize Monitor Activity Service.
+    memset(&mas_init, 0, sizeof(mas_init));
+
+    mas_init.support_acc_notification = true;
+    mas_init.acc_rd_sec               = SEC_OPEN;
+    mas_init.acc_cccd_wr_sec          = SEC_OPEN;
+    mas_init.support_gyroscope        = true;
+    mas_init.support_gyr_notification = true;
+    mas_init.gyr_rd_sec               = SEC_OPEN;
+    mas_init.gyr_cccd_wr_sec          = SEC_OPEN;
+
+    err_code = ble_mas_init(&m_mas, &mas_init);
     APP_ERROR_CHECK(err_code);
 
     /* YOUR_JOB: Add code to initialize the services used by the application.
@@ -416,6 +437,8 @@ static void application_timers_start(void)
 {
     ret_code_t err_code;
     err_code = app_timer_start(m_battery_timer_id, BATTERY_LEVEL_MEAS_INTERVAL, &m_bas);
+    APP_ERROR_CHECK(err_code);
+    err_code = app_timer_start(m_lsm9ds1_timer_id, LSM9DS1_MEAS_INTERVAL, &m_mas);
     APP_ERROR_CHECK(err_code);
     /* YOUR_JOB: Start your timers. below is an example of how to start a timer.
        ret_code_t err_code;

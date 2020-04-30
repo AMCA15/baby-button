@@ -25,6 +25,16 @@
  */
 app_timer_timeout_handler_t battery_level_meas_timeout_handler(void * p_context);
 
+/**@brief Function for handling the LSM9DS1's measurement timer timeout.
+ *
+ * @details This function will be called each time the LSM9DS1's measurement timer expires.
+ *          This function will start reading the LSM9DS1 data.
+ *
+ * @param[in] p_context   Pointer used for passing some arbitrary information (context) from the
+ *                        app_start_timer() call to the timeout handler.
+ */
+app_timer_timeout_handler_t lsm9ds1_meas_timeout_handler(void * p_context);
+
 /**@brief Function for initialize the sensors and peripherals.
  */
 void sensors_init(void);

@@ -13,13 +13,22 @@
 #include "sensors.h"
 #include <nrf_log.h>
 #include <nrfx_saadc.h>
+#include <nrfx_twim.h>
 #include <ble.h>
 #include <ble_bas.h>
+#include "ble_mas.h"
+#include "SparkFunLSM9DS1.h"
 
 #define ADC_REF_VOLTAGE_IN_MILLIVOLTS   600                /**< Reference voltage (in milli volts) used by ADC while doing conversion. */
 #define ADC_PRE_SCALING_COMPENSATION    6                  /**< The ADC is configured to use VDD with 1/3 prescaling as input. And hence the result of conversion is to be multiplied by 3 to get the actual value of the battery voltage.*/
 #define DIODE_FWD_VOLT_DROP_MILLIVOLTS  270                /**< Typical forward voltage drop of the diode . */
 #define ADC_RES_10BIT                   1024               /**< Maximum digital value for 10-bit ADC conversion. */
+
+#define SA0       1
+#define SA1       0
+
+#define SDA_PIN   6
+#define SCL_PIN   8
 
 
 /**@brief Macro to convert the result of ADC conversion in millivolts.
@@ -35,6 +44,9 @@
 static nrf_saadc_value_t adc_buf;
 static ble_bas_t * p_bas;
 
+static nrfx_twim_t nrfx_twim = NRFX_TWIM_INSTANCE(0);
+static lsm9ds1_t lsm9ds1;
+static ble_mas_t * p_mas;
 
 /**@brief Function for handling the Battery measurement timer timeout.
  *
@@ -48,6 +60,27 @@ app_timer_timeout_handler_t battery_level_meas_timeout_handler(void * p_context)
     ret_code_t err_code;
     p_bas = (ble_bas_t *) p_context;
     err_code = nrfx_saadc_sample();
+    APP_ERROR_CHECK(err_code);
+}
+
+/**@brief Function for handling the LSM9DS1's measurement timer timeout.
+ *
+ * @details This function will be called each time the LSM9DS1's measurement timer expires.
+ *          This function will start reading the LSM9DS1 data.
+ *
+ * @param[in] p_context   Pointer used for passing some arbitrary information (context) from the
+ *                        app_start_timer() call to the timeout handler.
+ */
+app_timer_timeout_handler_t lsm9ds1_meas_timeout_handler(void * p_context) {
+    ret_code_t err_code;
+    p_mas = (ble_mas_t *) p_context;
+    lsm9ds1_readAccel(&lsm9ds1);
+    lsm9ds1_readGyro(&lsm9ds1);
+    lsm9ds1_readMag(&lsm9ds1);
+    lsm9ds1_readTemp(&lsm9ds1);
+    ble_mas_accelerometer_measurement_send(&(*p_mas), lsm9ds1.ax, lsm9ds1.ay, lsm9ds1.az);
+    APP_ERROR_CHECK(err_code);
+    ble_mas_gyroscope_measurement_send(&(*p_mas), lsm9ds1.gx, lsm9ds1.gy, lsm9ds1.gz);
     APP_ERROR_CHECK(err_code);
 }
 
@@ -112,8 +145,28 @@ static void adc_configure(void)
     APP_ERROR_CHECK(err_code);
 }
 
+/**@brief Function for configuring TWIM to do sensor communication.
+ */
+static void twim_configure(void)
+{
+    ret_code_t err_code;
+    nrfx_twim_config_t nrfx_twim_config = NRFX_TWIM_DEFAULT_CONFIG;
+
+    nrfx_twim_config.scl = SCL_PIN;
+    nrfx_twim_config.sda = SDA_PIN;
+
+    err_code = nrfx_twim_init(&nrfx_twim, &nrfx_twim_config, NULL, NULL);
+    APP_ERROR_CHECK(err_code);
+    nrfx_twim_enable(&nrfx_twim);
+}
+
 /**@brief Function for initialize the sensor and peripherals.
  */
 void sensors_init(void) {
+    // Configure peripherals
     adc_configure();
+    twim_configure();
+
+    // Init sensors
+    lsm9ds1_begin(&lsm9ds1, &nrfx_twim, LSM9DS1_AG_ADDR(SA0), LSM9DS1_M_ADDR(SA1));
 }
