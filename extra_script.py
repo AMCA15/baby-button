@@ -28,7 +28,6 @@ def sdk_prepare():
     src_to_exclude += glob.glob(sdk_root + '/modules/nrfx/mdk/system_nrf5?.c')
     src_to_exclude += glob.glob(sdk_root + '/modules/nrfx/mdk/system_nrf9*.c')
     src_to_exclude += glob.glob(sdk_root + '/modules/nrfx/mdk/system_nrf528[!4]*.c')
-    src_to_exclude += glob.glob(sdk_root + '/components/ble/ble_services/ble_dfu/ble_dfu_unbonded.c')
     src_to_exclude += glob.glob(sdk_root + '/components/ble/ble_services/ble_escs/nrf_ble_escs.c')
     src_to_exclude += glob.glob(sdk_root + '/components/ble/ble_services/eddystone/*.[ch]')
     src_to_exclude += glob.glob(sdk_root + '/components/libraries/bootloader/ant_dfu/*.c')

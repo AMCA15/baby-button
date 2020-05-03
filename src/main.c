@@ -85,11 +85,13 @@
 #include "nrf_ringbuf.h"
 #include "SEGGER_RTT.h"
 
+#include "ble_dfu.h"
 #include "ble_dis.h"
 #include "ble_bas.h"
 #include "ble_mas.h"
 
 #include "sensors.h"
+#include "buttonless.h"
 
 #define DEVICE_NAME                     "Nordic_Template"                       /**< Name of device. Will be included in the advertising data. */
 #define MANUFACTURER_NAME               "NordicSemiconductor"                   /**< Manufacturer. Will be passed to Device Information Service. */
@@ -302,16 +304,24 @@ static void on_yys_evt(ble_yy_service_t     * p_yy_service,
  */
 static void services_init(void)
 {
-    ret_code_t         err_code;
-    nrf_ble_qwr_init_t qwr_init = {0};
-    ble_dis_init_t     dis_init;
-    ble_bas_init_t     bas_init;
-    ble_mas_init_t     mas_init;
+    ret_code_t                err_code;
+    nrf_ble_qwr_init_t        qwr_init  = {0};
+    ble_dfu_buttonless_init_t dfus_init = {0};
+    ble_dis_init_t            dis_init;
+    ble_bas_init_t            bas_init;
+    ble_mas_init_t            mas_init;
 
     // Initialize Queued Write Module.
     qwr_init.error_handler = nrf_qwr_error_handler;
 
     err_code = nrf_ble_qwr_init(&m_qwr, &qwr_init);
+    APP_ERROR_CHECK(err_code);
+
+    // Initialize DFU Buttonless Service.
+    dfus_init.evt_handler = ble_dfu_evt_handler;
+
+    ble_dfu_get_adv(&m_advertising);
+    err_code = ble_dfu_buttonless_init(&dfus_init);
     APP_ERROR_CHECK(err_code);
 
     // Initialize Battery Service.
@@ -773,10 +783,16 @@ static void advertising_start(bool erase_bonds)
  */
 int main(void)
 {
-    bool erase_bonds = 1;
+    bool       erase_bonds = 1;
+    ret_code_t err_code;
 
     // Initialize.
     log_init();
+
+    // Initialize the async SVCI interface to bootloader before any interrupts are enabled.
+    err_code = ble_dfu_buttonless_async_svci_init();
+    APP_ERROR_CHECK(err_code);
+
     timers_init();
     sensors_init();
     // buttons_leds_init(&erase_bonds);
