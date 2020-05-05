@@ -357,6 +357,8 @@ static void services_init(void)
     mas_init.support_gyr_notification = true;
     mas_init.gyr_rd_sec               = SEC_OPEN;
     mas_init.gyr_cccd_wr_sec          = SEC_OPEN;
+    mas_init.macp_evt_handler         = macp_evt_handler;
+    mas_init.macp_wr_sec              = SEC_OPEN;
 
     err_code = ble_mas_init(&m_mas, &mas_init);
     APP_ERROR_CHECK(err_code);

@@ -62,11 +62,16 @@ typedef struct ble_mas_s ble_mas_t;
 typedef void (*ble_mas_evt_handler_t) (ble_mas_t * p_mas, ble_mas_evt_t * p_evt);
 
 
+/**@brief Monitor Activity Control Point event handler type. */
+typedef void (*ble_macp_evt_handler_t) (uint8_t * data, uint8_t size);
+
+
 /**@brief Monitor Activity Service init structure. This contains all options and data needed for
  *        initialization of the service.*/
 typedef struct
 {
     ble_mas_evt_handler_t  evt_handler;                    /**< Event handler to be called for handling events in the Battery Service. */
+    ble_macp_evt_handler_t macp_evt_handler;               /**< Event handler to be called for handling events in the Monitor Activity Control Point Characteristic. */
     bool                   support_acc_notification;       /**< TRUE if notification of Accelerometer measurement is supported. */
     bool                   support_gyr_notification;       /**< TRUE if notification of Gyroscope measurement is supported. */
     bool                   support_gyroscope;              /**< TRUE if Gyroscope measurement is supported. */
@@ -74,6 +79,7 @@ typedef struct
     security_req_t         acc_rd_sec;                     /**< Security requirement for reading the Accelerometer characteristic value. */
     security_req_t         gyr_cccd_wr_sec;                /**< Security requirement for writing the Gyroscope characteristic CCCD. */
     security_req_t         gyr_rd_sec;                     /**< Security requirement for reading the Gyroscope characteristic value. */
+    security_req_t         macp_wr_sec;                    /**< Security requirement for writing the Monitor Activity Control Point characteristic CCCD. */
 } ble_mas_init_t;
 
 
@@ -81,10 +87,12 @@ typedef struct
 struct ble_mas_s
 {
     uint8_t                  uuid_type;                        /**< UUID type for Monitor Activity Service Base UUID. */
-    ble_mas_evt_handler_t    evt_handler;                      /**< Event handler to be called for handling events in the Battery Service. */
-    uint16_t                 service_handle;                   /**< Handle of Battery Service (as provided by the BLE stack). */
+    ble_mas_evt_handler_t    evt_handler;                      /**< Event handler to be called for handling events in the Monitor Activity Service. */
+    ble_macp_evt_handler_t   macp_evt_handler;                 /**< Event handler to be called for handling events in the Monitor Activity Control Point Characteristic. */
     ble_gatts_char_handles_t accelerometer_handles;            /**< Handles related to the Accelerometer characteristic. */
     ble_gatts_char_handles_t gyroscope_handles;                /**< Handles related to the Gyroscope characteristic. */
+    ble_gatts_char_handles_t macp_handles;                     /**< Handles related to the Monitor Activity Control Point characteristic. */
+    uint16_t                 service_handle;                   /**< Handle of Monitor Activity Service (as provided by the BLE stack). */
     uint16_t                 conn_handle;                      /**< Handle of the current connection (as provided by the BLE stack, is BLE_CONN_HANDLE_INVALID if not in a connection). */
     bool                     is_acc_notification_supported;    /**< TRUE if notification of Accelerometer is supported. */
     bool                     is_gyr_notification_supported;    /**< TRUE if notification of Gyroscope is supported. */

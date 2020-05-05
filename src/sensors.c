@@ -40,6 +40,12 @@
 #define ADC_RESULT_IN_MILLI_VOLTS(ADC_VALUE)\
         ((((ADC_VALUE) * ADC_REF_VOLTAGE_IN_MILLIVOLTS) / ADC_RES_10BIT) * ADC_PRE_SCALING_COMPENSATION)
 
+// Operations for Monitor Activity Control Point
+enum {
+    OP_MACP_CALIBRATE_ALL,
+    OP_MACP_CALIBRATE_AG,
+    OP_MACP_CALIBRATE_M,
+} op_macp_t;
 
 static nrf_saadc_value_t adc_buf;
 static ble_bas_t * p_bas;
@@ -84,6 +90,35 @@ app_timer_timeout_handler_t lsm9ds1_meas_timeout_handler(void * p_context) {
     APP_ERROR_CHECK(err_code);
 }
 
+/**@brief Monitor Activity Control Point event handler type. 
+ *        This control point is application specific, you need to implement it
+*/
+ble_macp_evt_handler_t macp_evt_handler (uint8_t * data, uint8_t size) {
+    switch(data[0]) {
+        case OP_MACP_CALIBRATE_ALL:
+            NRF_LOG_INFO("Calibrating all...");
+            NRF_LOG_INFO("Calibrating magnetometer");
+            NRF_LOG_DEBUG("Mag bias (current)  x: %d y: %d z: %d", lsm9ds1.mBiasRaw[0], lsm9ds1.mBiasRaw[1], lsm9ds1.mBiasRaw[2]);
+            lsm9ds1_calibrateMag(&lsm9ds1, true);
+            NRF_LOG_DEBUG("Mag bias (new)      x: %d y: %d z: %d", lsm9ds1.mBiasRaw[0], lsm9ds1.mBiasRaw[1], lsm9ds1.mBiasRaw[2]);
+        case OP_MACP_CALIBRATE_AG:
+            NRF_LOG_INFO("Calibrating accelerommeter and gyroscope");
+            NRF_LOG_DEBUG("Acc bias (current)  x: %d y: %d z: %d", lsm9ds1.aBiasRaw[0], lsm9ds1.aBiasRaw[1], lsm9ds1.aBiasRaw[2]);
+            NRF_LOG_DEBUG("Gyr bias (current)  x: %d y: %d z: %d", lsm9ds1.gBiasRaw[0], lsm9ds1.gBiasRaw[1], lsm9ds1.gBiasRaw[2]);
+            lsm9ds1_calibrate(&lsm9ds1, true);
+            NRF_LOG_DEBUG("Acc bias (new)      x: %d y: %d z: %d", lsm9ds1.aBiasRaw[0], lsm9ds1.aBiasRaw[1], lsm9ds1.aBiasRaw[2]);
+            NRF_LOG_DEBUG("Gyr bias (new)      x: %d y: %d z: %d", lsm9ds1.gBiasRaw[0], lsm9ds1.gBiasRaw[1], lsm9ds1.gBiasRaw[2]);
+            break;
+        case OP_MACP_CALIBRATE_M:
+            NRF_LOG_INFO("Calibrating magnetometer");
+            NRF_LOG_DEBUG("Mag bias (current)  x: %d y: %d z: %d", lsm9ds1.mBiasRaw[0], lsm9ds1.mBiasRaw[1], lsm9ds1.mBiasRaw[2]);
+            lsm9ds1_calibrateMag(&lsm9ds1, true);
+            NRF_LOG_DEBUG("Mag bias (new)      x: %d y: %d z: %d", lsm9ds1.mBiasRaw[0], lsm9ds1.mBiasRaw[1], lsm9ds1.mBiasRaw[2]);
+            break;
+        default:
+            break;
+    }
+}
 
 /**@brief Function for handling the ADC interrupt.
  *
