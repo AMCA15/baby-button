@@ -70,7 +70,7 @@ void ble_dfu_evt_handler(ble_dfu_buttonless_evt_type_t event)
             ble_adv_modes_config_t config;
             advertising_config_get(&config);
             config.ble_adv_on_disconnect_disabled = true;
-            ble_advertising_modes_config_set(&(*p_advertising), &config);
+            ble_advertising_modes_config_set(p_advertising, &config);
 
             // Disconnect all other bonded devices that currently are connected.
             // This is required to receive a service changed indication

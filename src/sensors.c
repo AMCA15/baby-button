@@ -54,6 +54,16 @@ static nrfx_twim_t nrfx_twim = NRFX_TWIM_INSTANCE(0);
 static lsm9ds1_t lsm9ds1;
 static ble_mas_t * p_mas;
 
+// Feature data Struct
+static union features_data_t {
+    struct bit_t {
+        uint8_t calibrated_ag : 1;
+        uint8_t calibrated_m  : 1;
+        uint8_t inactivity    : 1;
+    } bit;
+    uint8_t byte;
+} features_data;
+
 /**@brief Function for handling the Battery measurement timer timeout.
  *
  * @details This function will be called each time the battery level measurement timer expires.
@@ -78,16 +88,14 @@ app_timer_timeout_handler_t battery_level_meas_timeout_handler(void * p_context)
  *                        app_start_timer() call to the timeout handler.
  */
 app_timer_timeout_handler_t lsm9ds1_meas_timeout_handler(void * p_context) {
-    ret_code_t err_code;
     p_mas = (ble_mas_t *) p_context;
     lsm9ds1_readAccel(&lsm9ds1);
     lsm9ds1_readGyro(&lsm9ds1);
     lsm9ds1_readMag(&lsm9ds1);
     lsm9ds1_readTemp(&lsm9ds1);
-    ble_mas_accelerometer_measurement_send(&(*p_mas), lsm9ds1.ax, lsm9ds1.ay, lsm9ds1.az);
-    APP_ERROR_CHECK(err_code);
-    ble_mas_gyroscope_measurement_send(&(*p_mas), lsm9ds1.gx, lsm9ds1.gy, lsm9ds1.gz);
-    APP_ERROR_CHECK(err_code);
+    ble_mas_accelerometer_measurement_send(p_mas, lsm9ds1.ax, lsm9ds1.ay, lsm9ds1.az);
+    ble_mas_gyroscope_measurement_send(p_mas, lsm9ds1.gx, lsm9ds1.gy, lsm9ds1.gz);
+    ble_mas_features_send(p_mas, features_data.byte);
 }
 
 /**@brief Monitor Activity Control Point event handler type. 
@@ -100,21 +108,27 @@ ble_macp_evt_handler_t macp_evt_handler (uint8_t * data, uint8_t size) {
             NRF_LOG_INFO("Calibrating magnetometer");
             NRF_LOG_DEBUG("Mag bias (current)  x: %d y: %d z: %d", lsm9ds1.mBiasRaw[0], lsm9ds1.mBiasRaw[1], lsm9ds1.mBiasRaw[2]);
             lsm9ds1_calibrateMag(&lsm9ds1, true);
+            features_data.bit.calibrated_m = 1;
             NRF_LOG_DEBUG("Mag bias (new)      x: %d y: %d z: %d", lsm9ds1.mBiasRaw[0], lsm9ds1.mBiasRaw[1], lsm9ds1.mBiasRaw[2]);
+
         case OP_MACP_CALIBRATE_AG:
             NRF_LOG_INFO("Calibrating accelerommeter and gyroscope");
             NRF_LOG_DEBUG("Acc bias (current)  x: %d y: %d z: %d", lsm9ds1.aBiasRaw[0], lsm9ds1.aBiasRaw[1], lsm9ds1.aBiasRaw[2]);
             NRF_LOG_DEBUG("Gyr bias (current)  x: %d y: %d z: %d", lsm9ds1.gBiasRaw[0], lsm9ds1.gBiasRaw[1], lsm9ds1.gBiasRaw[2]);
             lsm9ds1_calibrate(&lsm9ds1, true);
+            features_data.bit.calibrated_ag = 1;
             NRF_LOG_DEBUG("Acc bias (new)      x: %d y: %d z: %d", lsm9ds1.aBiasRaw[0], lsm9ds1.aBiasRaw[1], lsm9ds1.aBiasRaw[2]);
             NRF_LOG_DEBUG("Gyr bias (new)      x: %d y: %d z: %d", lsm9ds1.gBiasRaw[0], lsm9ds1.gBiasRaw[1], lsm9ds1.gBiasRaw[2]);
             break;
+
         case OP_MACP_CALIBRATE_M:
             NRF_LOG_INFO("Calibrating magnetometer");
             NRF_LOG_DEBUG("Mag bias (current)  x: %d y: %d z: %d", lsm9ds1.mBiasRaw[0], lsm9ds1.mBiasRaw[1], lsm9ds1.mBiasRaw[2]);
             lsm9ds1_calibrateMag(&lsm9ds1, true);
+            features_data.bit.calibrated_m = 1;
             NRF_LOG_DEBUG("Mag bias (new)      x: %d y: %d z: %d", lsm9ds1.mBiasRaw[0], lsm9ds1.mBiasRaw[1], lsm9ds1.mBiasRaw[2]);
             break;
+            
         default:
             break;
     }
@@ -143,7 +157,7 @@ nrfx_saadc_event_handler_t saadc_event_handler(nrfx_saadc_evt_t const * p_event)
                                   DIODE_FWD_VOLT_DROP_MILLIVOLTS;
         percentage_batt_lvl = battery_level_in_percent(batt_lvl_in_milli_volts);
 
-        err_code = ble_bas_battery_level_update(&(*p_bas), percentage_batt_lvl, BLE_CONN_HANDLE_ALL);
+        err_code = ble_bas_battery_level_update(p_bas, percentage_batt_lvl, BLE_CONN_HANDLE_ALL);
         if ((err_code != NRF_SUCCESS) &&
             (err_code != NRF_ERROR_INVALID_STATE) &&
             (err_code != NRF_ERROR_RESOURCES) &&

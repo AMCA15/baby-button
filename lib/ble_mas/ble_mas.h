@@ -74,11 +74,15 @@ typedef struct
     ble_macp_evt_handler_t macp_evt_handler;               /**< Event handler to be called for handling events in the Monitor Activity Control Point Characteristic. */
     bool                   support_acc_notification;       /**< TRUE if notification of Accelerometer measurement is supported. */
     bool                   support_gyr_notification;       /**< TRUE if notification of Gyroscope measurement is supported. */
+    bool                   support_feat_notification;      /**< TRUE if notification of Features is supported. */
     bool                   support_gyroscope;              /**< TRUE if Gyroscope measurement is supported. */
+    bool                   support_features;               /**< TRUE if Features is supported. */
     security_req_t         acc_cccd_wr_sec;                /**< Security requirement for writing the Acceleromter characteristic CCCD. */
     security_req_t         acc_rd_sec;                     /**< Security requirement for reading the Accelerometer characteristic value. */
     security_req_t         gyr_cccd_wr_sec;                /**< Security requirement for writing the Gyroscope characteristic CCCD. */
     security_req_t         gyr_rd_sec;                     /**< Security requirement for reading the Gyroscope characteristic value. */
+    security_req_t         feat_cccd_wr_sec;               /**< Security requirement for writing the Features characteristic CCCD. */
+    security_req_t         feat_rd_sec;                    /**< Security requirement for reading the Features characteristic value. */
     security_req_t         macp_wr_sec;                    /**< Security requirement for writing the Monitor Activity Control Point characteristic CCCD. */
 } ble_mas_init_t;
 
@@ -91,6 +95,7 @@ struct ble_mas_s
     ble_macp_evt_handler_t   macp_evt_handler;                 /**< Event handler to be called for handling events in the Monitor Activity Control Point Characteristic. */
     ble_gatts_char_handles_t accelerometer_handles;            /**< Handles related to the Accelerometer characteristic. */
     ble_gatts_char_handles_t gyroscope_handles;                /**< Handles related to the Gyroscope characteristic. */
+    ble_gatts_char_handles_t features_handles;                 /**< Handles related to the Features characteristic. */
     ble_gatts_char_handles_t macp_handles;                     /**< Handles related to the Monitor Activity Control Point characteristic. */
     uint16_t                 service_handle;                   /**< Handle of Monitor Activity Service (as provided by the BLE stack). */
     uint16_t                 conn_handle;                      /**< Handle of the current connection (as provided by the BLE stack, is BLE_CONN_HANDLE_INVALID if not in a connection). */
@@ -153,6 +158,18 @@ uint32_t ble_mas_accelerometer_measurement_send(ble_mas_t * p_mas, int16_t acc_x
 uint32_t ble_mas_gyroscope_measurement_send(ble_mas_t * p_mas, int16_t gyr_x, uint16_t gyr_y, uint16_t gyr_z);
 
 
+/**@brief Function for sending features data if notification has been enabled.
+ *
+ * @details The application calls this function after having performed any features data update.
+ *          If notification has been enabled, the features data is encoded and sent to
+ *          the client.
+ *
+ * @param[in]   p_mas                    Monitor Activity Service structure.
+ * @param[in]   data                     New features data.
+ *
+ * @return      NRF_SUCCESS on success, otherwise an error code.
+ */
+uint32_t ble_mas_features_send(ble_mas_t * p_mas, uint8_t data);
 
 #ifdef __cplusplus
 }

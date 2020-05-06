@@ -16,10 +16,12 @@
 
 #define BLE_UUID_MAS_ACC_CHARACTERISTIC                  0x0002     /**< The UUID of the Accelerometer Characteristic. */
 #define BLE_UUID_MAS_GYR_CHARACTERISTIC                  0x0003     /**< The UUID of the Gyroscope Characteristic. */
+#define BLE_UUID_MAS_FEAT_CHARACTERISTIC                 0x0004     /**< The UUID of the Feature Characteristic. */
 #define BLE_UUID_MONITOR_ACTIVITY_CONTROL_POINT_CHAR     0x0100     /**< Monitor Activity Control Point characteristic UUID. */
 
 #define BLE_MAS_MAX_ACC_CHAR_LEN        6                    /**< Maximum length of the Acceletometer Characteristic (in bytes). */
 #define BLE_MAS_MAX_GYR_CHAR_LEN        6                    /**< Maximum length of the Gyroscope Characteristic (in bytes). */
+#define BLE_MAS_MAX_FEAT_CHAR_LEN       1                    /**< Maximum length of the Feature Characteristic (in bytes). */
 #define BLE_MACP_MAX_GYR_CHAR_LEN       1                    /**< Maximum length of the Monitor Activity Control Point Characteristic (in bytes). */
 
 #define MAS_BASE_UUID                  {{0x20, 0xBB, 0xBA, 0x22, 0x68, 0x55, 0x41, 0x98, 0xBA, 0xAA, 0xA5, 0x68, 0x57, 0xA6, 0x25, 0xE4}} /**< Used vendor specific UUID. */
@@ -27,6 +29,7 @@
 
 #define ACC_CHAR_USER_DESCR_VALUE    "Accelerometer"           /**< The User Descriptor value of the Accelerometer Characteristic. */
 #define GYR_CHAR_USER_DESCR_VALUE    "Gyroscope"               /**< The User Descriptor value of the Gyroscope Characteristic. */
+#define FEAT_CHAR_USER_DESCR_VALUE   "Features"                /**< The User Descriptor value of the Features Characteristic. */
 #define MACP_CHAR_USER_DESCR_VALUE   "Control Point"           /**< The User Descriptor value of the Monitor Activity Control Point Characteristic. */
 
 
@@ -82,8 +85,8 @@ static void on_write(ble_mas_t * p_mas, ble_evt_t const * p_ble_evt)
 
 /**@brief Function for adding the Accelerometer characteristic.
  *
- * @param[in]   p_bas        Monitor Activity Service structure.
- * @param[in]   p_bas_init   Information needed to initialize the service.
+ * @param[in]   p_mas        Monitor Activity Service structure.
+ * @param[in]   p_mas_init   Information needed to initialize the service.
  *
  * @return      NRF_SUCCESS on success, otherwise an error code.
  */
@@ -120,8 +123,8 @@ static ret_code_t accelerometer_char_add(ble_mas_t * p_mas, const ble_mas_init_t
 
 /**@brief Function for adding the Gyroscope characteristic.
  *
- * @param[in]   p_bas        Monitor Activity Service structure.
- * @param[in]   p_bas_init   Information needed to initialize the service.
+ * @param[in]   p_mas        Monitor Activity Service structure.
+ * @param[in]   p_mas_init   Information needed to initialize the service.
  *
  * @return      NRF_SUCCESS on success, otherwise an error code.
  */
@@ -152,6 +155,44 @@ static ret_code_t gyroscope_char_add(ble_mas_t * p_mas, const ble_mas_init_t * p
     add_char_user_desc.read_access           = SEC_OPEN;
 
     err_code = characteristic_add(p_mas->service_handle, &add_char_params, &(p_mas->gyroscope_handles));
+    return err_code;
+}
+
+
+/**@brief Function for adding the Features characteristic.
+ *
+ * @param[in]   p_mas        Monitor Activity Service structure.
+ * @param[in]   p_mas_init   Information needed to initialize the service.
+ *
+ * @return      NRF_SUCCESS on success, otherwise an error code.
+ */
+static ret_code_t features_char_add(ble_mas_t * p_mas, const ble_mas_init_t * p_mas_init) {
+    ret_code_t err_code;
+    ble_add_char_params_t add_char_params;
+    ble_add_char_user_desc_t add_char_user_desc;
+
+    // Add the Gyroscope Characteristic.
+    memset(&add_char_params, 0, sizeof(add_char_params));
+    add_char_params.uuid                     = BLE_UUID_MAS_FEAT_CHARACTERISTIC;
+    add_char_params.uuid_type                = p_mas->uuid_type;
+    add_char_params.max_len                  = BLE_MAS_MAX_FEAT_CHAR_LEN;
+    add_char_params.init_len                 = sizeof(uint8_t);
+    add_char_params.is_var_len               = true;
+    add_char_params.char_props.read          = 1;
+    add_char_params.char_props.notify        = p_mas_init->support_feat_notification;
+    add_char_params.read_access              = p_mas_init->feat_rd_sec;
+    add_char_params.cccd_write_access        = p_mas_init->feat_cccd_wr_sec;
+    add_char_params.p_user_descr             = &add_char_user_desc;
+
+    // Add the Gyroscope Characteristic User Descriptor.
+    memset(&add_char_user_desc, 0, sizeof(add_char_user_desc));
+    add_char_user_desc.p_char_user_desc      = (uint8_t *) FEAT_CHAR_USER_DESCR_VALUE;
+    add_char_user_desc.size                  = strlen((char *) FEAT_CHAR_USER_DESCR_VALUE);
+    add_char_user_desc.max_size              = add_char_user_desc.size;
+    add_char_user_desc.char_props.read       = 1;
+    add_char_user_desc.read_access           = SEC_OPEN;
+
+    err_code = characteristic_add(p_mas->service_handle, &add_char_params, &(p_mas->features_handles));
     return err_code;
 }
 
@@ -258,6 +299,12 @@ ret_code_t ble_mas_init(ble_mas_t * p_mas, const ble_mas_init_t * p_mas_init)
         VERIFY_SUCCESS(err_code);
     }
 
+    // Add the Features characteristic.
+    if(p_mas_init->support_features){
+        err_code = features_char_add(p_mas, p_mas_init);
+        VERIFY_SUCCESS(err_code);
+    }
+
     // Add the Control Point characteristic.
     if(p_mas_init->macp_evt_handler != NULL) {
         err_code = macp_char_add(p_mas, p_mas_init);
@@ -335,6 +382,47 @@ uint32_t ble_mas_gyroscope_measurement_send(ble_mas_t * p_mas, int16_t gyr_x, ui
         memset(&hvx_params, 0, sizeof(hvx_params));
 
         hvx_params.handle = p_mas->gyroscope_handles.value_handle;
+        hvx_params.type   = BLE_GATT_HVX_NOTIFICATION;
+        hvx_params.offset = 0;
+        hvx_params.p_len  = &hvx_len;
+        hvx_params.p_data = encoded_mas;
+
+        err_code = sd_ble_gatts_hvx(p_mas->conn_handle, &hvx_params);
+        if ((err_code == NRF_SUCCESS) && (hvx_len != len))
+        {
+            err_code = NRF_ERROR_DATA_SIZE;
+        }
+    }
+    else
+    {
+        err_code = NRF_ERROR_INVALID_STATE;
+    }
+
+    return err_code;
+}
+
+
+uint32_t ble_mas_features_send(ble_mas_t * p_mas, uint8_t data)
+{
+    uint32_t err_code;
+
+    // Send value if connected and notifying
+    if (p_mas->conn_handle != BLE_CONN_HANDLE_INVALID)
+    {
+        uint8_t                encoded_mas[BLE_MAS_MAX_FEAT_CHAR_LEN];
+        uint16_t               len;
+        uint16_t               hvx_len;
+        ble_gatts_hvx_params_t hvx_params;
+
+        encoded_mas[0] = data;
+
+        len = sizeof(encoded_mas);
+
+        hvx_len = len;
+
+        memset(&hvx_params, 0, sizeof(hvx_params));
+
+        hvx_params.handle = p_mas->features_handles.value_handle;
         hvx_params.type   = BLE_GATT_HVX_NOTIFICATION;
         hvx_params.offset = 0;
         hvx_params.p_len  = &hvx_len;

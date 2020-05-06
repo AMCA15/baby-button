@@ -350,15 +350,19 @@ static void services_init(void)
     // Initialize Monitor Activity Service.
     memset(&mas_init, 0, sizeof(mas_init));
 
-    mas_init.support_acc_notification = true;
-    mas_init.acc_rd_sec               = SEC_OPEN;
-    mas_init.acc_cccd_wr_sec          = SEC_OPEN;
-    mas_init.support_gyroscope        = true;
-    mas_init.support_gyr_notification = true;
-    mas_init.gyr_rd_sec               = SEC_OPEN;
-    mas_init.gyr_cccd_wr_sec          = SEC_OPEN;
-    mas_init.macp_evt_handler         = macp_evt_handler;
-    mas_init.macp_wr_sec              = SEC_OPEN;
+    mas_init.support_acc_notification  = true;
+    mas_init.acc_rd_sec                = SEC_OPEN;
+    mas_init.acc_cccd_wr_sec           = SEC_OPEN;
+    mas_init.support_gyroscope         = true;
+    mas_init.support_gyr_notification  = true;
+    mas_init.gyr_rd_sec                = SEC_OPEN;
+    mas_init.gyr_cccd_wr_sec           = SEC_OPEN;
+    mas_init.support_features          = true;
+    mas_init.support_feat_notification = true;
+    mas_init.feat_rd_sec               = SEC_OPEN;
+    mas_init.feat_cccd_wr_sec          = SEC_OPEN;
+    mas_init.macp_evt_handler          = macp_evt_handler;
+    mas_init.macp_wr_sec               = SEC_OPEN;
 
     err_code = ble_mas_init(&m_mas, &mas_init);
     APP_ERROR_CHECK(err_code);
@@ -469,11 +473,11 @@ static void sleep_mode_enter(void)
     ret_code_t err_code;
 
     // err_code = bsp_indication_set(BSP_INDICATE_IDLE);
-    APP_ERROR_CHECK(err_code);
+    // APP_ERROR_CHECK(err_code);
 
     // Prepare wakeup buttons.
     // err_code = bsp_btn_ble_sleep_mode_prepare();
-    APP_ERROR_CHECK(err_code);
+    // APP_ERROR_CHECK(err_code);
 
     // Go to system-off mode (this function will not return; wakeup will cause a reset).
     err_code = sd_power_system_off();
