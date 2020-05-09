@@ -14,6 +14,7 @@
 #include <nrf_log.h>
 #include <nrfx_saadc.h>
 #include <nrfx_twim.h>
+#include <nrf_gpio.h>
 #include <ble.h>
 #include <ble_bas.h>
 #include "ble_mas.h"
@@ -24,11 +25,19 @@
 #define DIODE_FWD_VOLT_DROP_MILLIVOLTS  270                /**< Typical forward voltage drop of the diode . */
 #define ADC_RES_10BIT                   1024               /**< Maximum digital value for 10-bit ADC conversion. */
 
-#define SA0       1
-#define SA1       0
+#define SDA_PIN                         6                  /**< SDA pin used by the TWI. */
+#define SCL_PIN                         8                  /**< SCL pin used by the TWI. */
 
-#define SDA_PIN   6
-#define SCL_PIN   8
+#define LSM9DS1_SA0                     1
+#define LSM9DS1_SA1                     0
+// TODO: We need to tuning the Inactivity Threshold
+#define LSM9DS1_INACTIVITY_THS          40                 /**< Set the LSM9DS1 Inactivity threshold. Actual value unknow, the documentation doesn't say it. */
+#define LSM9DS1_INACTIVITY_DUR          255                /**< Set the LSM9DS1 Inactivity duration. Actual value unknow, the documentation doesn't say it. */
+
+#define INT1_AG      NRF_GPIO_PIN_MAP(1,11)                /**< INT1_AG pin of the LSM9DS1. */
+#define INT2_AG      NRF_GPIO_PIN_MAP(1,10)                /**< INT2_AG pin of the LSM9DS1. */
+#define INT_M        NRF_GPIO_PIN_MAP(1,13)                /**< INT_M   pin of the LSM9DS1. */
+#define DRDY_M       NRF_GPIO_PIN_MAP(1,15)                /**< DRDY_M  pin of the LSM9DS1. */
 
 
 /**@brief Macro to convert the result of ADC conversion in millivolts.
@@ -79,6 +88,20 @@ app_timer_timeout_handler_t battery_level_meas_timeout_handler(void * p_context)
     APP_ERROR_CHECK(err_code);
 }
 
+/**@brief Update the Inactivity flag of the Features Characteristic
+ */
+void update_inactivity(void) {
+    if(nrf_gpio_pin_read(INT1_AG)) {
+        // Enable the Inactivity
+        lsm9ds1_configInactivity(&lsm9ds1, LSM9DS1_INACTIVITY_DUR, LSM9DS1_INACTIVITY_THS, false);
+    }
+    else {
+        // Disable the Inactivity
+        lsm9ds1_xgWriteByte(&lsm9ds1, ACT_THS, 0);
+    }
+    features_data.bit.inactivity = nrf_gpio_pin_read(INT2_AG);
+}
+
 /**@brief Function for handling the LSM9DS1's measurement timer timeout.
  *
  * @details This function will be called each time the LSM9DS1's measurement timer expires.
@@ -93,12 +116,13 @@ app_timer_timeout_handler_t lsm9ds1_meas_timeout_handler(void * p_context) {
     lsm9ds1_readGyro(&lsm9ds1);
     lsm9ds1_readMag(&lsm9ds1);
     lsm9ds1_readTemp(&lsm9ds1);
+    update_inactivity();
     ble_mas_accelerometer_measurement_send(p_mas, lsm9ds1.ax, lsm9ds1.ay, lsm9ds1.az);
     ble_mas_gyroscope_measurement_send(p_mas, lsm9ds1.gx, lsm9ds1.gy, lsm9ds1.gz);
     ble_mas_features_send(p_mas, features_data.byte);
 }
 
-/**@brief Monitor Activity Control Point event handler type. 
+/**@brief Monitor Activity Control Point event handler type.
  *        This control point is application specific, you need to implement it
 */
 ble_macp_evt_handler_t macp_evt_handler (uint8_t * data, uint8_t size) {
@@ -128,7 +152,7 @@ ble_macp_evt_handler_t macp_evt_handler (uint8_t * data, uint8_t size) {
             features_data.bit.calibrated_m = 1;
             NRF_LOG_DEBUG("Mag bias (new)      x: %d y: %d z: %d", lsm9ds1.mBiasRaw[0], lsm9ds1.mBiasRaw[1], lsm9ds1.mBiasRaw[2]);
             break;
-            
+
         default:
             break;
     }
@@ -209,13 +233,41 @@ static void twim_configure(void)
     nrfx_twim_enable(&nrfx_twim);
 }
 
+/**@brief Function for configuring the GPIO.
+ */
+static void gpio_configure(void)
+{
+    nrf_gpio_cfg_input(INT1_AG, NRF_GPIO_PIN_NOPULL);
+    nrf_gpio_cfg_input(INT2_AG, NRF_GPIO_PIN_NOPULL);
+}
+
+
+/**@brief Function for initialize the IMU.
+ */
+static void imu_init(void)
+{
+    lsm9ds1_begin(&lsm9ds1, &nrfx_twim, LSM9DS1_AG_ADDR(LSM9DS1_SA0), LSM9DS1_M_ADDR(LSM9DS1_SA1));
+    
+    // Disable the accelerometer latching interrupt
+    lsm9ds1_xgWriteByte(&lsm9ds1, CTRL_REG4, 0x38);
+
+    // Configure accelerometer interrupt
+    lsm9ds1_configAccelThs(&lsm9ds1, 80, X_AXIS, 255, false);
+    lsm9ds1_configAccelInt(&lsm9ds1, XLIE_XL, false);
+    lsm9ds1_configInt(&lsm9ds1, XG_INT1, INT_IG_XL, INT_ACTIVE_HIGH, INT_PUSH_PULL);
+
+    // Configure the inactivity interrupt output pin
+    lsm9ds1_configInt(&lsm9ds1, XG_INT2, INT2_INACT, INT_ACTIVE_HIGH, INT_PUSH_PULL);
+}
+
 /**@brief Function for initialize the sensor and peripherals.
  */
 void sensors_init(void) {
     // Configure peripherals
     adc_configure();
     twim_configure();
+    gpio_configure();
 
     // Init sensors
-    lsm9ds1_begin(&lsm9ds1, &nrfx_twim, LSM9DS1_AG_ADDR(SA0), LSM9DS1_M_ADDR(SA1));
+    imu_init();
 }
