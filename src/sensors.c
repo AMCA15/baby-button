@@ -16,6 +16,7 @@
 #include <nrfx_twim.h>
 #include <nrf_gpio.h>
 #include <ble.h>
+#include <ble_conn_state.h>
 #include <ble_bas.h>
 #include "ble_mas.h"
 #include "SparkFunLSM9DS1.h"
@@ -102,6 +103,22 @@ void update_inactivity(void) {
     features_data.bit.inactivity = nrf_gpio_pin_read(INT2_AG);
 }
 
+/**@brief Function for send all the data to all connected clients.
+ */
+void send_to_all(void) {
+    ble_conn_state_conn_handle_list_t conn_handles = ble_conn_state_periph_handles();
+
+    for (uint8_t i = 0; i < conn_handles.len; i++)
+    {
+        // Set the connection handle
+        p_mas->conn_handle = conn_handles.conn_handles[i];
+
+        ble_mas_accelerometer_measurement_send(p_mas, lsm9ds1.ax, lsm9ds1.ay, lsm9ds1.az);
+        ble_mas_gyroscope_measurement_send(p_mas, lsm9ds1.gx, lsm9ds1.gy, lsm9ds1.gz);
+        ble_mas_features_send(p_mas, features_data.byte);
+    }
+}
+
 /**@brief Function for handling the LSM9DS1's measurement timer timeout.
  *
  * @details This function will be called each time the LSM9DS1's measurement timer expires.
@@ -117,9 +134,7 @@ app_timer_timeout_handler_t lsm9ds1_meas_timeout_handler(void * p_context) {
     lsm9ds1_readMag(&lsm9ds1);
     lsm9ds1_readTemp(&lsm9ds1);
     update_inactivity();
-    ble_mas_accelerometer_measurement_send(p_mas, lsm9ds1.ax, lsm9ds1.ay, lsm9ds1.az);
-    ble_mas_gyroscope_measurement_send(p_mas, lsm9ds1.gx, lsm9ds1.gy, lsm9ds1.gz);
-    ble_mas_features_send(p_mas, features_data.byte);
+    send_to_all();
 }
 
 /**@brief Monitor Activity Control Point event handler type.

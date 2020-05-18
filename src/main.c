@@ -129,7 +129,7 @@
 
 
 NRF_BLE_GATT_DEF(m_gatt);                                                       /**< GATT module instance. */
-NRF_BLE_QWR_DEF(m_qwr);                                                         /**< Context for the Queued Write module.*/
+NRF_BLE_QWRS_DEF(m_qwr, NRF_SDH_BLE_TOTAL_LINK_COUNT);                          /**< Context for the Queued Write module.*/
 BLE_ADVERTISING_DEF(m_advertising);                                             /**< Advertising module instance. */
 
 static uint16_t m_conn_handle = BLE_CONN_HANDLE_INVALID;                        /**< Handle of the current connection. */
@@ -513,6 +513,61 @@ static void on_adv_evt(ble_adv_evt_t ble_adv_evt)
 }
 
 
+/**@brief Function for handling the Connected event.
+ *
+ * @param[in] p_gap_evt GAP event received from the BLE stack.
+ */
+static void on_connected(const ble_gap_evt_t * const p_gap_evt)
+{
+    ret_code_t  err_code;
+    uint32_t    periph_link_cnt = ble_conn_state_peripheral_conn_count(); // Number of peripheral links.
+
+    NRF_LOG_INFO("Connection with link 0x%x established.", p_gap_evt->conn_handle);
+
+    // Assign connection handle to available instance of QWR module.
+    for (uint32_t i = 0; i < NRF_SDH_BLE_PERIPHERAL_LINK_COUNT; i++)
+    {
+        if (m_qwr[i].conn_handle == BLE_CONN_HANDLE_INVALID)
+        {
+            err_code = nrf_ble_qwr_conn_handle_assign(&m_qwr[i], p_gap_evt->conn_handle);
+            APP_ERROR_CHECK(err_code);
+            break;
+        }
+    }
+
+    if (periph_link_cnt == NRF_SDH_BLE_PERIPHERAL_LINK_COUNT)
+    {
+        NRF_LOG_INFO("Max link count reached");
+    }
+    else
+    {
+        // Continue advertising. More connections can be established because the maximum link count has not been reached.
+        advertising_start(false);
+    }
+}
+
+
+/**@brief Function for handling the Disconnected event.
+ *
+ * @param[in] p_gap_evt GAP event received from the BLE stack.
+ */
+static void on_disconnected(ble_gap_evt_t const * const p_gap_evt)
+{
+    ret_code_t  err_code;
+    uint32_t    periph_link_cnt = ble_conn_state_peripheral_conn_count(); // Number of peripheral links.
+
+    NRF_LOG_INFO("Connection 0x%x has been disconnected. Reason: 0x%X",
+                 p_gap_evt->conn_handle,
+                 p_gap_evt->params.disconnected.reason);
+
+    if (periph_link_cnt == (NRF_SDH_BLE_PERIPHERAL_LINK_COUNT - 1))
+    {
+        // Advertising is not running when all connections are taken, and must therefore be started.
+        advertising_start(false);
+    }
+}
+
+
 /**@brief Function for handling BLE events.
  *
  * @param[in]   p_ble_evt   Bluetooth stack event.
@@ -526,16 +581,12 @@ static void ble_evt_handler(ble_evt_t const * p_ble_evt, void * p_context)
     {
         case BLE_GAP_EVT_DISCONNECTED:
             NRF_LOG_INFO("Disconnected.");
-            // LED indication will be changed when advertising starts.
+            on_disconnected(&p_ble_evt->evt.gap_evt);
             break;
 
         case BLE_GAP_EVT_CONNECTED:
             NRF_LOG_INFO("Connected.");
-            // err_code = bsp_indication_set(BSP_INDICATE_CONNECTED);
-            APP_ERROR_CHECK(err_code);
-            m_conn_handle = p_ble_evt->evt.gap_evt.conn_handle;
-            err_code = nrf_ble_qwr_conn_handle_assign(&m_qwr, m_conn_handle);
-            APP_ERROR_CHECK(err_code);
+            on_connected(&p_ble_evt->evt.gap_evt);
             break;
 
         case BLE_GAP_EVT_PHY_UPDATE_REQUEST:
