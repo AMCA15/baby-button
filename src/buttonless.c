@@ -10,6 +10,7 @@
  */
 
 #include "buttonless.h"
+#include <ble_conn_state.h>
 #include <nrf_log.h>
 #include <app_error.h>
 

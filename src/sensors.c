@@ -82,7 +82,7 @@ static union features_data_t {
  * @param[in] p_context   Pointer used for passing some arbitrary information (context) from the
  *                        app_start_timer() call to the timeout handler.
  */
-app_timer_timeout_handler_t battery_level_meas_timeout_handler(void * p_context) {
+void battery_level_meas_timeout_handler(void * p_context) {
     ret_code_t err_code;
     p_bas = (ble_bas_t *) p_context;
     err_code = nrfx_saadc_sample();
@@ -127,7 +127,7 @@ void send_to_all(void) {
  * @param[in] p_context   Pointer used for passing some arbitrary information (context) from the
  *                        app_start_timer() call to the timeout handler.
  */
-app_timer_timeout_handler_t lsm9ds1_meas_timeout_handler(void * p_context) {
+void lsm9ds1_meas_timeout_handler(void * p_context) {
     p_mas = (ble_mas_t *) p_context;
     lsm9ds1_readAccel(&lsm9ds1);
     lsm9ds1_readGyro(&lsm9ds1);
@@ -140,7 +140,7 @@ app_timer_timeout_handler_t lsm9ds1_meas_timeout_handler(void * p_context) {
 /**@brief Monitor Activity Control Point event handler type.
  *        This control point is application specific, you need to implement it
 */
-ble_macp_evt_handler_t macp_evt_handler (uint8_t * data, uint8_t size) {
+void macp_evt_handler (uint8_t * data, uint8_t size) {
     switch(data[0]) {
         case OP_MACP_CALIBRATE_ALL:
             NRF_LOG_INFO("Calibrating all...");
@@ -178,7 +178,7 @@ ble_macp_evt_handler_t macp_evt_handler (uint8_t * data, uint8_t size) {
  * @details  This function will fetch the conversion result from the ADC, convert the value into
  *           percentage and send it to peer.
  */
-nrfx_saadc_event_handler_t saadc_event_handler(nrfx_saadc_evt_t const * p_event)
+void saadc_event_handler(nrfx_saadc_evt_t const * p_event)
 {
     if (p_event->type == NRFX_SAADC_EVT_DONE)
     {

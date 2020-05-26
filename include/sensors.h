@@ -12,9 +12,7 @@
 #ifndef SENSORS_H__
 #define SENSORS_H__
 
-#include <app_timer.h>
-#include <ble_mas.h>
-
+#include <stdint.h>
 
 /**@brief Function for handling the Battery measurement timer timeout.
  *
@@ -24,7 +22,7 @@
  * @param[in] p_context   Pointer used for passing some arbitrary information (context) from the
  *                        app_start_timer() call to the timeout handler.
  */
-app_timer_timeout_handler_t battery_level_meas_timeout_handler(void * p_context);
+void battery_level_meas_timeout_handler(void * p_context);
 
 /**@brief Function for handling the LSM9DS1's measurement timer timeout.
  *
@@ -34,12 +32,12 @@ app_timer_timeout_handler_t battery_level_meas_timeout_handler(void * p_context)
  * @param[in] p_context   Pointer used for passing some arbitrary information (context) from the
  *                        app_start_timer() call to the timeout handler.
  */
-app_timer_timeout_handler_t lsm9ds1_meas_timeout_handler(void * p_context);
+void lsm9ds1_meas_timeout_handler(void * p_context);
 
 /**@brief Monitor Activity Control Point event handler type. 
  *        This control point is application specific, you need to implement it
 */
-ble_macp_evt_handler_t macp_evt_handler (uint8_t * data, uint8_t size);
+void macp_evt_handler (uint8_t * data, uint8_t size);
 
 /**@brief Function for initialize the sensors and peripherals.
  */

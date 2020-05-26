@@ -314,8 +314,11 @@ static void services_init(void)
     // Initialize Queued Write Module.
     qwr_init.error_handler = nrf_qwr_error_handler;
 
-    err_code = nrf_ble_qwr_init(&m_qwr, &qwr_init);
-    APP_ERROR_CHECK(err_code);
+    for (uint32_t i = 0; i < NRF_SDH_BLE_PERIPHERAL_LINK_COUNT; i++)
+    {
+        err_code = nrf_ble_qwr_init(&m_qwr[i], &qwr_init);
+        APP_ERROR_CHECK(err_code);
+    }
 
     // Initialize DFU Buttonless Service.
     dfus_init.evt_handler = ble_dfu_evt_handler;
@@ -493,14 +496,14 @@ static void sleep_mode_enter(void)
  */
 static void on_adv_evt(ble_adv_evt_t ble_adv_evt)
 {
-    ret_code_t err_code;
+    // ret_code_t err_code;
 
     switch (ble_adv_evt)
     {
         case BLE_ADV_EVT_FAST:
             NRF_LOG_INFO("Fast advertising.");
             // err_code = bsp_indication_set(BSP_INDICATE_ADVERTISING);
-            APP_ERROR_CHECK(err_code);
+            // APP_ERROR_CHECK(err_code);
             break;
 
         case BLE_ADV_EVT_IDLE:
@@ -553,7 +556,6 @@ static void on_connected(const ble_gap_evt_t * const p_gap_evt)
  */
 static void on_disconnected(ble_gap_evt_t const * const p_gap_evt)
 {
-    ret_code_t  err_code;
     uint32_t    periph_link_cnt = ble_conn_state_peripheral_conn_count(); // Number of peripheral links.
 
     NRF_LOG_INFO("Connection 0x%x has been disconnected. Reason: 0x%X",
