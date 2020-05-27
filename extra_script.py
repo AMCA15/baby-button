@@ -39,6 +39,7 @@ def sdk_prepare():
     src_to_exclude += glob.glob(sdk_root + '/components/libraries/experimental_task_manager/*keil*.s')
     src_to_exclude += glob.glob(sdk_root + '/components/libraries/scheduler/app_scheduler_serconn.c')
     src_to_exclude += glob.glob(sdk_root + '/components/libraries/timer/app_timer_[fr]*.c')
+    src_to_exclude += glob.glob(sdk_root + '/components/libraries/timer/app_timer.c')
     src_to_exclude += glob.glob(sdk_root + '/components/libraries/util/*iar*.c')
     src_to_exclude += glob.glob(sdk_root + '/components/libraries/util/*keil*.c')
     src_to_exclude += glob.glob(sdk_root + '/external/freertos/portable/CMSIS/nrf51/*.[ch]')
