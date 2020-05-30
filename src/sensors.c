@@ -20,6 +20,7 @@
 #include <ble_bas.h>
 #include "ble_mas.h"
 #include "SparkFunLSM9DS1.h"
+#include <ble_sec.h>
 
 #define ADC_REF_VOLTAGE_IN_MILLIVOLTS   600                /**< Reference voltage (in milli volts) used by ADC while doing conversion. */
 #define ADC_PRE_SCALING_COMPENSATION    6                  /**< The ADC is configured to use VDD with 1/3 prescaling as input. And hence the result of conversion is to be multiplied by 3 to get the actual value of the battery voltage.*/
@@ -40,6 +41,9 @@
 #define INT_M        NRF_GPIO_PIN_MAP(1,13)                /**< INT_M   pin of the LSM9DS1. */
 #define DRDY_M       NRF_GPIO_PIN_MAP(1,15)                /**< DRDY_M  pin of the LSM9DS1. */
 
+
+#define ACC_THS_FOR_SET_PASSKEY  -0.95 / 0.000061          /**< Acceleration threshold for setting the passkey type. */
+#define MAG_THS_FOR_SET_PASSKEY      1 / 0.00014           /**< Magnetic field threshold for setting the passkey type. */
 
 /**@brief Macro to convert the result of ADC conversion in millivolts.
  *
@@ -119,6 +123,18 @@ void send_to_all(void) {
     }
 }
 
+/**@brief Set the passkey type.
+ * If the thresholds are exceeded, it will set a static passkey, otherwise a random passkey is used
+ */
+void set_passkey_type(void) {
+     if((lsm9ds1.ax <= ACC_THS_FOR_SET_PASSKEY) && (lsm9ds1.mz >= MAG_THS_FOR_SET_PASSKEY)) {
+         set_static_passkey();
+     }
+     else {
+         set_random_passkey();
+     }
+}
+
 /**@brief Function for handling the LSM9DS1's measurement timer timeout.
  *
  * @details This function will be called each time the LSM9DS1's measurement timer expires.
@@ -135,6 +151,7 @@ void lsm9ds1_meas_timeout_handler(void * p_context) {
     lsm9ds1_readTemp(&lsm9ds1);
     update_inactivity();
     send_to_all();
+    set_passkey_type();
 }
 
 /**@brief Monitor Activity Control Point event handler type.

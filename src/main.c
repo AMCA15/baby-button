@@ -92,6 +92,7 @@
 
 #include "sensors.h"
 #include "buttonless.h"
+#include "ble_sec.h"
 
 #define DEVICE_NAME                     "Nordic_Template"                       /**< Name of device. Will be included in the advertising data. */
 #define MANUFACTURER_NAME               "NordicSemiconductor"                   /**< Manufacturer. Will be passed to Device Information Service. */
@@ -120,7 +121,7 @@
 #define SEC_PARAM_MITM                  0                                       /**< Man In The Middle protection not required. */
 #define SEC_PARAM_LESC                  0                                       /**< LE Secure Connections not enabled. */
 #define SEC_PARAM_KEYPRESS              0                                       /**< Keypress notifications not enabled. */
-#define SEC_PARAM_IO_CAPABILITIES       BLE_GAP_IO_CAPS_NONE                    /**< No I/O capabilities. */
+#define SEC_PARAM_IO_CAPABILITIES       BLE_GAP_IO_CAPS_DISPLAY_ONLY            /**< Display I/O capabilities. */
 #define SEC_PARAM_OOB                   0                                       /**< Out Of Band data not available. */
 #define SEC_PARAM_MIN_KEY_SIZE          7                                       /**< Minimum encryption key size. */
 #define SEC_PARAM_MAX_KEY_SIZE          16                                      /**< Maximum encryption key size. */
@@ -365,7 +366,7 @@ static void services_init(void)
     mas_init.feat_rd_sec               = SEC_OPEN;
     mas_init.feat_cccd_wr_sec          = SEC_OPEN;
     mas_init.macp_evt_handler          = macp_evt_handler;
-    mas_init.macp_wr_sec               = SEC_OPEN;
+    mas_init.macp_wr_sec               = SEC_JUST_WORKS;
 
     err_code = ble_mas_init(&m_mas, &mas_init);
     APP_ERROR_CHECK(err_code);
@@ -617,6 +618,31 @@ static void ble_evt_handler(ble_evt_t const * p_ble_evt, void * p_context)
             err_code = sd_ble_gap_disconnect(p_ble_evt->evt.gatts_evt.conn_handle,
                                              BLE_HCI_REMOTE_USER_TERMINATED_CONNECTION);
             APP_ERROR_CHECK(err_code);
+            break;
+
+        case BLE_GAP_EVT_SEC_PARAMS_REQUEST:
+            NRF_LOG_DEBUG("BLE_GAP_EVT_SEC_PARAMS_REQUEST");
+            break;
+
+        case BLE_GAP_EVT_PASSKEY_DISPLAY:
+            print_passkey(p_ble_evt);
+            break;
+
+        case BLE_GAP_EVT_AUTH_KEY_REQUEST:
+            NRF_LOG_INFO("BLE_GAP_EVT_AUTH_KEY_REQUEST");
+            break;
+
+        case BLE_GAP_EVT_LESC_DHKEY_REQUEST:
+            NRF_LOG_INFO("BLE_GAP_EVT_LESC_DHKEY_REQUEST");
+            break;
+
+        case BLE_GAP_EVT_AUTH_STATUS:
+            NRF_LOG_INFO("BLE_GAP_EVT_AUTH_STATUS: status=0x%x bond=0x%x lv4: %d kdist_own:0x%x kdist_peer:0x%x",
+                        p_ble_evt->evt.gap_evt.params.auth_status.auth_status,
+                        p_ble_evt->evt.gap_evt.params.auth_status.bonded,
+                        p_ble_evt->evt.gap_evt.params.auth_status.sm1_levels.lv4,
+                        *((uint8_t *)&p_ble_evt->evt.gap_evt.params.auth_status.kdist_own),
+                        *((uint8_t *)&p_ble_evt->evt.gap_evt.params.auth_status.kdist_peer));
             break;
 
         default:
