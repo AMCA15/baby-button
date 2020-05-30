@@ -73,6 +73,7 @@
 #include "peer_manager_handler.h"
 #include "ble_conn_state.h"
 #include "nrf_ble_gatt.h"
+#include "nrf_ble_lesc.h"
 #include "nrf_ble_qwr.h"
 #include "nrf_pwr_mgmt.h"
 
@@ -119,7 +120,7 @@
 
 #define SEC_PARAM_BOND                  1                                       /**< Perform bonding. */
 #define SEC_PARAM_MITM                  0                                       /**< Man In The Middle protection not required. */
-#define SEC_PARAM_LESC                  0                                       /**< LE Secure Connections not enabled. */
+#define SEC_PARAM_LESC                  1                                       /**< LE Secure Connections enabled. */
 #define SEC_PARAM_KEYPRESS              0                                       /**< Keypress notifications not enabled. */
 #define SEC_PARAM_IO_CAPABILITIES       BLE_GAP_IO_CAPS_DISPLAY_ONLY            /**< Display I/O capabilities. */
 #define SEC_PARAM_OOB                   0                                       /**< Out Of Band data not available. */
@@ -839,6 +840,11 @@ static void power_management_init(void)
  */
 static void idle_state_handle(void)
 {
+    ret_code_t err_code;
+
+    err_code = nrf_ble_lesc_request_handler();
+    APP_ERROR_CHECK(err_code);
+    
     if (NRF_LOG_PROCESS() == false)
     {
         nrf_pwr_mgmt_run();
@@ -886,9 +892,9 @@ int main(void)
     gap_params_init();
     gatt_init();
     advertising_init();
-    services_init();
     conn_params_init();
     peer_manager_init();
+    services_init();
 
     // Start execution.
     NRF_LOG_INFO("Template example started.");
