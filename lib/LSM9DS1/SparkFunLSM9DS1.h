@@ -165,6 +165,11 @@ int16_t lsm9ds1_readMag_ax(lsm9ds1_t *lsm9ds1, lsm9ds1_axis axis);
 // those _after_ calling lsm9ds1_readTemp().
 void lsm9ds1_readTemp(lsm9ds1_t *lsm9ds1);
 
+// lsm9ds1_readAccelGyro_burst() -- Read the accelerometer and magnetometer output registers in burst.
+// This function will read all six magnetometer output registers n (length) times.
+// The readings are stored in the buffer variable. only_accel: set this option when the gyroscope is inactive
+void lsm9ds1_readAccelGyro_burst(lsm9ds1_t *lsm9ds1, uint16_t *buffer, uint8_t length, uint8_t only_accel);
+
 // lsm9ds1_calcGyro() -- Convert from RAW signed 16-bit value to degrees per second
 // This function reads in a signed 16-bit value and returns the scaled
 // DPS. This function relies on gScale and gRes being correct.

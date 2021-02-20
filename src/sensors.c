@@ -47,6 +47,9 @@
 #define ACC_THS_FOR_SET_PASSKEY  -0.95 / 0.000061          /**< Acceleration threshold for setting the passkey type. */
 #define MAG_THS_FOR_SET_PASSKEY      1 / 0.00014           /**< Magnetic field threshold for setting the passkey type. */
 
+
+#define BURST_BUFFER_SIZE        LSM9DS1_FIFO_THS*6        /**< Buffer size for burst reading on lsm9ds1 registers. */
+
 /**@brief Macro to convert the result of ADC conversion in millivolts.
  *
  * @param[in]  ADC_VALUE   ADC result.
@@ -164,24 +167,43 @@ void set_passkey_type(void) {
 void lsm9ds1_meas_timeout_handler(void * p_context) {
     p_mas = (ble_mas_t *) p_context;
 
+    uint16_t acc_gyr_buffer[BURST_BUFFER_SIZE];
+
     if(imu_int.is_fifo_full){
         NRF_LOG_RAW_INFO("Samples in FIFO %d | INT 1 %d | INT 2 %d\n", lsm9ds1_getFIFOSamples(&lsm9ds1), nrf_gpio_pin_read(INT1_AG), nrf_gpio_pin_read(INT2_AG));
         
         lsm9ds1_readMag(&lsm9ds1);
         lsm9ds1_readTemp(&lsm9ds1);
 
-        for(uint8_t i=0; i < LSM9DS1_FIFO_THS; i++) {
-            lsm9ds1_readAccel(&lsm9ds1);
-            lsm9ds1_readGyro(&lsm9ds1);
-            imu_data.acc_x[i] = lsm9ds1.ax;
-            imu_data.acc_y[i] = lsm9ds1.ay;
-            imu_data.acc_z[i] = lsm9ds1.az;
-            imu_data.gyr_x[i] = lsm9ds1.gx;
-            imu_data.gyr_y[i] = lsm9ds1.gy;
-            imu_data.gyr_z[i] = lsm9ds1.gz;
-            // NRF_LOG_RAW_INFO("[%d] ", i);
-            // NRF_LOG_RAW_INFO("Acc: %d, %d, %d || Gyr: %d, %d, %d\n", imu_data.acc_x[i], imu_data.acc_y[i], imu_data.acc_z[i], imu_data.gyr_x[i], imu_data.gyr_y[i], imu_data.gyr_z[i]);
+        // TODO Check improvement with this version and the burst reading
+        // for(uint8_t i=0; i < LSM9DS1_FIFO_THS; i++) {
+        //     lsm9ds1_readAccel(&lsm9ds1);
+        //     lsm9ds1_readGyro(&lsm9ds1);
+        //     imu_data.acc_x[i] = lsm9ds1.ax;
+        //     imu_data.acc_y[i] = lsm9ds1.ay;
+        //     imu_data.acc_z[i] = lsm9ds1.az;
+        //     imu_data.gyr_x[i] = lsm9ds1.gx;
+        //     imu_data.gyr_y[i] = lsm9ds1.gy;
+        //     imu_data.gyr_z[i] = lsm9ds1.gz;
+        //     // NRF_LOG_RAW_INFO("[%d] ", i);
+        //     // NRF_LOG_RAW_INFO("Acc: %d, %d, %d || Gyr: %d, %d, %d\n", imu_data.acc_x[i], imu_data.acc_y[i], imu_data.acc_z[i], imu_data.gyr_x[i], imu_data.gyr_y[i], imu_data.gyr_z[i]);
+        // }
+
+        if(features_data.bit.inactivity) {
+            lsm9ds1_readAccelGyro_burst(&lsm9ds1, acc_gyr_buffer, LSM9DS1_FIFO_THS, true);
         }
+        else {
+            lsm9ds1_readAccelGyro_burst(&lsm9ds1, acc_gyr_buffer, LSM9DS1_FIFO_THS, false);
+        }
+        for(uint8_t i = 0, j = 0; i < LSM9DS1_FIFO_THS; i++, j+=6) {
+            imu_data.acc_x[i] = acc_gyr_buffer[j+3];
+            imu_data.acc_y[i] = acc_gyr_buffer[j+4];
+            imu_data.acc_z[i] = acc_gyr_buffer[j+5];
+            imu_data.gyr_x[i] = acc_gyr_buffer[ j ];
+            imu_data.gyr_y[i] = acc_gyr_buffer[j+1];
+            imu_data.gyr_z[i] = acc_gyr_buffer[j+2];
+        }
+
         NRF_LOG_RAW_INFO("Samples in FIFO %2d | INT 1 %d | INT 2 %d\n", lsm9ds1_getFIFOSamples(&lsm9ds1), nrf_gpio_pin_read(INT1_AG), nrf_gpio_pin_read(INT2_AG));
         
         update_inactivity();

@@ -604,6 +604,39 @@ int16_t lsm9ds1_readGyro_ax(lsm9ds1_t *lsm9ds1, lsm9ds1_axis axis)
 	return value;
 }
 
+void lsm9ds1_readAccelGyro_burst(lsm9ds1_t *lsm9ds1, uint16_t *buffer, uint8_t length, uint8_t only_accel) {
+	
+	uint8_t temp[12*length];
+
+	if(only_accel) {
+		if ( lsm9ds1_xgReadBytes(lsm9ds1, OUT_X_L_XL, temp, 6*length) == 6*length )
+		{
+			for(uint8_t i = 0, j = 0, k=0; i < length; i++, j+=6, k+=12) {
+				buffer[ j ] = 0x7fff;							// Gyr_X
+				buffer[j+1] = 0x7fff;  							// Gyr_Y
+				buffer[j+2] = 0x7fff;  							// Gyr_Z
+				buffer[j+3] = (temp[k+7]  << 8) | temp[k+6];  	// Acc_X
+				buffer[j+4] = (temp[k+9]  << 8) | temp[k+8];  	// Acc_Y
+				buffer[j+5] = (temp[k+11] << 8) | temp[k+10];	// Acc_Z
+			}
+		}
+	}
+	else {
+		if ( lsm9ds1_xgReadBytes(lsm9ds1, OUT_X_L_G, temp, 12*length) == 12*length )
+		{
+			for(uint8_t i = 0, j = 0, k=0; i < length; i++, j+=6, k+=12) {
+				buffer[ j ] = (temp[k+1]  << 8) | temp[ k ];	// Gyr_X
+				buffer[j+1] = (temp[k+3]  << 8) | temp[k+2];  	// Gyr_Y
+				buffer[j+2] = (temp[k+5]  << 8) | temp[k+4];  	// Gyr_Z
+				buffer[j+3] = (temp[k+7]  << 8) | temp[k+6];  	// Acc_X
+				buffer[j+4] = (temp[k+9]  << 8) | temp[k+8];  	// Acc_Y
+				buffer[j+5] = (temp[k+11] << 8) | temp[k+10];	// Acc_Z
+			}
+		}
+	}
+
+}
+
 float lsm9ds1_calcGyro(lsm9ds1_t *lsm9ds1, int16_t gyro)
 {
 	// Return the gyro raw reading times our pre-calculated DPS / (ADC tick):
