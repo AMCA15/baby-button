@@ -70,8 +70,6 @@ static nrfx_twim_t nrfx_twim = NRFX_TWIM_INSTANCE(0);
 static lsm9ds1_t lsm9ds1;
 static ble_mas_t * p_mas;
 
-static uint8_t is_fifo_full;
-
 static struct imu_data_t {
     int16_t acc_x[LSM9DS1_FIFO_THS];
     int16_t acc_y[LSM9DS1_FIFO_THS];
@@ -81,6 +79,12 @@ static struct imu_data_t {
     int16_t gyr_z[LSM9DS1_FIFO_THS];
 } imu_data;
 
+static struct imu_int_t {
+    uint8_t is_fifo_full;
+    uint8_t is_ig_xl;
+    uint8_t is_ig_g;
+    uint8_t is_inactive;
+} imu_int;
 
 // Feature data Struct
 static union features_data_t {
@@ -110,15 +114,15 @@ void battery_level_meas_timeout_handler(void * p_context) {
 /**@brief Update the Inactivity flag of the Features Characteristic
  */
 void update_inactivity(void) {
-    if(nrf_gpio_pin_read(INT1_AG)) {
+    if(imu_int.is_ig_xl) {
         // Enable the Inactivity
         lsm9ds1_configInactivity(&lsm9ds1, LSM9DS1_INACTIVITY_DUR, LSM9DS1_INACTIVITY_THS, false);
+        features_data.bit.inactivity = lsm9ds1_getInactivity(&lsm9ds1);
     }
     else {
         // Disable the Inactivity
         lsm9ds1_xgWriteByte(&lsm9ds1, ACT_THS, 0);
     }
-    features_data.bit.inactivity = nrf_gpio_pin_read(INT2_AG);
 }
 
 /**@brief Function for send all the data to all connected clients.
@@ -160,7 +164,7 @@ void set_passkey_type(void) {
 void lsm9ds1_meas_timeout_handler(void * p_context) {
     p_mas = (ble_mas_t *) p_context;
 
-    if(get_fifo_status()){
+    if(imu_int.is_fifo_full){
         NRF_LOG_RAW_INFO("Samples in FIFO %d | INT 1 %d | INT 2 %d\n", lsm9ds1_getFIFOSamples(&lsm9ds1), nrf_gpio_pin_read(INT1_AG), nrf_gpio_pin_read(INT2_AG));
         
         lsm9ds1_readMag(&lsm9ds1);
@@ -305,29 +309,16 @@ static void gpio_configure(void)
     nrf_gpio_cfg_input(INT2_AG, NRF_GPIO_PIN_NOPULL);
 }
 
-/**
- * @brief Get the fifo status
- * 
- * @return uint8_t 1: The FIFO is full 
- *                 0: The FIFO is empty
- */
-uint8_t get_fifo_status(void) {
-    return is_fifo_full;
-};
-
-/**
- * @brief Set the fifo status
- * 
- * @param status uint8_t 1: The FIFO is full 
- *                       0: The FIFO is empty
- */
-void set_fifo_status(uint8_t status) {
-    is_fifo_full = status;
-};
 
 void gpiote_handler(nrfx_gpiote_pin_t pin, nrf_gpiote_polarity_t action) {
-    NRF_LOG_INFO("Inside GPIOTE handler. Pin number: %d. Polarity: %d", pin, nrf_gpio_pin_read(INT2_AG));
-    set_fifo_status(nrf_gpio_pin_read(INT2_AG));
+    switch (pin) {
+        case INT1_AG:
+            imu_int.is_ig_xl = nrf_gpio_pin_read(INT1_AG);
+            break;
+        case INT2_AG:
+            imu_int.is_fifo_full = nrf_gpio_pin_read(INT2_AG);
+            break;
+    }
 }
 
 
@@ -341,7 +332,9 @@ static void gpiote_configure(void)
     NRF_LOG_INFO("Configuring GPIOTE");
     err_code = nrfx_gpiote_init();
     APP_ERROR_CHECK(err_code);
+    nrfx_gpiote_in_init(INT1_AG,  &nrfx_gpiote_in_config, gpiote_handler);
     nrfx_gpiote_in_init(INT2_AG,  &nrfx_gpiote_in_config, gpiote_handler);
+    nrfx_gpiote_in_event_enable(INT1_AG, true);
     nrfx_gpiote_in_event_enable(INT2_AG, true);
     // nrf_gpio_cfg_input(INT1_AG, NRF_GPIO_PIN_NOPULL);
     // nrf_gpio_cfg_input(INT2_AG, NRF_GPIO_PIN_NOPULL);

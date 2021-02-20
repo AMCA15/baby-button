@@ -854,7 +854,8 @@ void lsm9ds1_configInactivity(lsm9ds1_t *lsm9ds1, uint8_t duration, uint8_t thre
 uint8_t lsm9ds1_getInactivity(lsm9ds1_t *lsm9ds1)
 {
 	uint8_t temp = lsm9ds1_xgReadByte(lsm9ds1, STATUS_REG_0);
-	temp &= (0x10);
+	// temp &= (0x10);
+	temp = (temp & 0x10) == 0x10;
 	return temp;
 }
 

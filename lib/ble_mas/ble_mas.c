@@ -314,7 +314,7 @@ ret_code_t ble_mas_init(ble_mas_t * p_mas, const ble_mas_init_t * p_mas_init)
 }
 
 
-uint32_t ble_mas_accelerometer_measurement_send(ble_mas_t * p_mas, int16_t acc_x, uint16_t acc_y, uint16_t acc_z)
+uint32_t ble_mas_accelerometer_measurement_send(ble_mas_t * p_mas, uint16_t acc_x, uint16_t acc_y, uint16_t acc_z)
 {
     uint32_t err_code;
 
@@ -358,7 +358,7 @@ uint32_t ble_mas_accelerometer_measurement_send(ble_mas_t * p_mas, int16_t acc_x
 }
 
 
-uint32_t ble_mas_gyroscope_measurement_send(ble_mas_t * p_mas, int16_t gyr_x, uint16_t gyr_y, uint16_t gyr_z)
+uint32_t ble_mas_gyroscope_measurement_send(ble_mas_t * p_mas, uint16_t gyr_x, uint16_t gyr_y, uint16_t gyr_z)
 {
     uint32_t err_code;
 
@@ -402,7 +402,7 @@ uint32_t ble_mas_gyroscope_measurement_send(ble_mas_t * p_mas, int16_t gyr_x, ui
 }
 
 
-uint32_t ble_mas_accelerometer_bulk_send(ble_mas_t * p_mas, int16_t * acc_x, uint16_t * acc_y, uint16_t * acc_z, uint8_t length)
+uint32_t ble_mas_accelerometer_bulk_send(ble_mas_t * p_mas, uint16_t * acc_x, uint16_t * acc_y, uint16_t * acc_z, uint8_t length)
 {
     uint32_t err_code;
 
@@ -464,7 +464,7 @@ uint32_t ble_mas_accelerometer_bulk_send(ble_mas_t * p_mas, int16_t * acc_x, uin
 }
 
 
-uint32_t ble_mas_gyroscope_bulk_send(ble_mas_t * p_mas, int16_t * gyr_x, uint16_t * gyr_y, uint16_t * gyr_z, uint8_t length)
+uint32_t ble_mas_gyroscope_bulk_send(ble_mas_t * p_mas, uint16_t * gyr_x, uint16_t * gyr_y, uint16_t * gyr_z, uint8_t length)
 {
     uint32_t err_code;
 
