@@ -609,7 +609,7 @@ void lsm9ds1_readAccelGyro_burst(lsm9ds1_t *lsm9ds1, uint16_t *buffer, uint8_t l
 	uint8_t temp[12*length];
 
 	if(only_accel) {
-		if ( lsm9ds1_xgReadBytes(lsm9ds1, OUT_X_L_XL, temp, 6*length) == 6*length )
+		if ( lsm9ds1_xgReadBytes(lsm9ds1, OUT_X_L_G, temp, 12*length) == 12*length )
 		{
 			for(uint8_t i = 0, j = 0, k=0; i < length; i++, j+=6, k+=12) {
 				buffer[ j ] = 0x7fff;							// Gyr_X
