@@ -24,6 +24,7 @@
  */
 void battery_level_meas_timeout_handler(void * p_context);
 
+// TODO Fix documentation
 /**@brief Function for handling the LSM9DS1's measurement timer timeout.
  *
  * @details This function will be called each time the LSM9DS1's measurement timer expires.
@@ -32,7 +33,7 @@ void battery_level_meas_timeout_handler(void * p_context);
  * @param[in] p_context   Pointer used for passing some arbitrary information (context) from the
  *                        app_start_timer() call to the timeout handler.
  */
-void lsm9ds1_meas_timeout_handler(void * p_context);
+void init_ble_mas_sensor(void * p_context);
 
 /**@brief Monitor Activity Control Point event handler type. 
  *        This control point is application specific, you need to implement it

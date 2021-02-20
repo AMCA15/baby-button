@@ -117,7 +117,7 @@ void battery_level_meas_timeout_handler(void * p_context) {
 /**@brief Update the Inactivity flag of the Features Characteristic
  */
 void update_inactivity(void) {
-    if(imu_int.is_ig_xl) {
+    if(nrf_gpio_pin_read(INT1_AG)) {
         // Enable the Inactivity
         lsm9ds1_configInactivity(&lsm9ds1, LSM9DS1_INACTIVITY_DUR, LSM9DS1_INACTIVITY_THS, false);
         features_data.bit.inactivity = lsm9ds1_getInactivity(&lsm9ds1);
@@ -156,6 +156,7 @@ void set_passkey_type(void) {
      }
 }
 
+// TODO Fix documentation
 /**@brief Function for handling the LSM9DS1's measurement timer timeout.
  *
  * @details This function will be called each time the LSM9DS1's measurement timer expires.
@@ -164,8 +165,19 @@ void set_passkey_type(void) {
  * @param[in] p_context   Pointer used for passing some arbitrary information (context) from the
  *                        app_start_timer() call to the timeout handler.
  */
-void lsm9ds1_meas_timeout_handler(void * p_context) {
+void init_ble_mas_sensor(void * p_context) {
     p_mas = (ble_mas_t *) p_context;
+}
+
+/**@brief Function for handling the LSM9DS1's measurement timer timeout.
+ *
+ * @details This function will be called each time the LSM9DS1's measurement timer expires.
+ *          This function will start reading the LSM9DS1 data.
+ *
+ * @param[in] p_context   Pointer used for passing some arbitrary information (context) from the
+ *                        app_start_timer() call to the timeout handler.
+ */
+void acquire_and_send_data(void) {
 
     uint16_t acc_gyr_buffer[BURST_BUFFER_SIZE];
 
@@ -317,6 +329,7 @@ static void twim_configure(void)
 
     nrfx_twim_config.scl = SCL_PIN;
     nrfx_twim_config.sda = SDA_PIN;
+    nrfx_twim_config.interrupt_priority = 6;
 
     err_code = nrfx_twim_init(&nrfx_twim, &nrfx_twim_config, NULL, NULL);
     APP_ERROR_CHECK(err_code);
@@ -334,11 +347,9 @@ static void gpio_configure(void)
 
 void gpiote_handler(nrfx_gpiote_pin_t pin, nrf_gpiote_polarity_t action) {
     switch (pin) {
-        case INT1_AG:
-            imu_int.is_ig_xl = nrf_gpio_pin_read(INT1_AG);
-            break;
         case INT2_AG:
             imu_int.is_fifo_full = nrf_gpio_pin_read(INT2_AG);
+            acquire_and_send_data();
             break;
     }
 }
@@ -356,10 +367,7 @@ static void gpiote_configure(void)
     APP_ERROR_CHECK(err_code);
     nrfx_gpiote_in_init(INT1_AG,  &nrfx_gpiote_in_config, gpiote_handler);
     nrfx_gpiote_in_init(INT2_AG,  &nrfx_gpiote_in_config, gpiote_handler);
-    nrfx_gpiote_in_event_enable(INT1_AG, true);
     nrfx_gpiote_in_event_enable(INT2_AG, true);
-    // nrf_gpio_cfg_input(INT1_AG, NRF_GPIO_PIN_NOPULL);
-    // nrf_gpio_cfg_input(INT2_AG, NRF_GPIO_PIN_NOPULL);
 }
 
 

@@ -107,7 +107,6 @@
 #define APP_BLE_CONN_CFG_TAG            1                                       /**< A tag identifying the SoftDevice BLE configuration. */
 
 #define BATTERY_LEVEL_MEAS_INTERVAL     APP_TIMER_TICKS(120000)                 /**< Battery level measurement interval (ticks). */
-#define LSM9DS1_MEAS_INTERVAL           APP_TIMER_TICKS(1000)                   /**< LSM9DS1's measurement interval (ticks). */
 
 #define MIN_CONN_INTERVAL               MSEC_TO_UNITS(100, UNIT_1_25_MS)        /**< Minimum acceptable connection interval (0.1 seconds). */
 #define MAX_CONN_INTERVAL               MSEC_TO_UNITS(200, UNIT_1_25_MS)        /**< Maximum acceptable connection interval (0.2 second). */
@@ -205,8 +204,6 @@ static void timers_init(void)
     APP_ERROR_CHECK(err_code);
 
     err_code = app_timer_create(&m_battery_timer_id, APP_TIMER_MODE_REPEATED, battery_level_meas_timeout_handler);
-    APP_ERROR_CHECK(err_code);
-    err_code = app_timer_create(&m_lsm9ds1_timer_id, APP_TIMER_MODE_REPEATED, lsm9ds1_meas_timeout_handler);
     APP_ERROR_CHECK(err_code);
     // Create timers.
 
@@ -372,6 +369,9 @@ static void services_init(void)
     err_code = ble_mas_init(&m_mas, &mas_init);
     APP_ERROR_CHECK(err_code);
 
+    // Init Monitor Activity Instance for sensors
+    init_ble_mas_sensor(&m_mas);
+
     /* YOUR_JOB: Add code to initialize the services used by the application.
        ble_xxs_init_t                     xxs_init;
        ble_yys_init_t                     yys_init;
@@ -459,8 +459,6 @@ static void application_timers_start(void)
     ret_code_t err_code;
     err_code = app_timer_start(m_battery_timer_id, BATTERY_LEVEL_MEAS_INTERVAL, &m_bas);
     APP_ERROR_CHECK(err_code);
-    err_code = app_timer_start(m_lsm9ds1_timer_id, LSM9DS1_MEAS_INTERVAL, &m_mas);
-    APP_ERROR_CHECK(err_code);
     /* YOUR_JOB: Start your timers. below is an example of how to start a timer.
        ret_code_t err_code;
        err_code = app_timer_start(m_app_timer_id, TIMER_INTERVAL, NULL);
@@ -509,7 +507,9 @@ static void on_adv_evt(ble_adv_evt_t ble_adv_evt)
             break;
 
         case BLE_ADV_EVT_IDLE:
-            sleep_mode_enter();
+            // TODO WE need to put the lsm9ds1 in power off when the Bluetooth is in idle state
+            // FIXME The device is going to sleep mode even if there's a client connected
+            // sleep_mode_enter();
             break;
 
         default:
