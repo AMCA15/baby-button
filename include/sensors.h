@@ -43,5 +43,19 @@ void macp_evt_handler (uint8_t * data, uint8_t size);
  */
 void sensors_init(void);
 
+/**@brief Get the fifo status
+ * 
+ * @return uint8_t 1: The FIFO is full 
+ *                 0: The FIFO is empty
+ */
+uint8_t get_fifo_status(void);
+
+/**@brief Set the fifo status
+ * 
+ * @param status uint8_t 1: The FIFO is full 
+ *                       0: The FIFO is empty
+ */
+void set_fifo_status(uint8_t status);
+
 
 #endif // SENSORS_H__

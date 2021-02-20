@@ -15,6 +15,7 @@
 #include <nrfx_saadc.h>
 #include <nrfx_twim.h>
 #include <nrf_gpio.h>
+#include <nrfx_gpiote.h>
 #include <ble.h>
 #include <ble_conn_state.h>
 #include <ble_bas.h>
@@ -35,6 +36,7 @@
 // TODO: We need to tuning the Inactivity Threshold
 #define LSM9DS1_INACTIVITY_THS          40                 /**< Set the LSM9DS1 Inactivity threshold. Actual value unknow, the documentation doesn't say it. */
 #define LSM9DS1_INACTIVITY_DUR          255                /**< Set the LSM9DS1 Inactivity duration. Actual value unknow, the documentation doesn't say it. */
+#define LSM9DS1_FIFO_THS                16                 /**< Set the LSM9DS1 FIFO Threshold. */
 
 #define INT1_AG      NRF_GPIO_PIN_MAP(1,11)                /**< INT1_AG pin of the LSM9DS1. */
 #define INT2_AG      NRF_GPIO_PIN_MAP(1,10)                /**< INT2_AG pin of the LSM9DS1. */
@@ -67,6 +69,18 @@ static ble_bas_t * p_bas;
 static nrfx_twim_t nrfx_twim = NRFX_TWIM_INSTANCE(0);
 static lsm9ds1_t lsm9ds1;
 static ble_mas_t * p_mas;
+
+static uint8_t is_fifo_full;
+
+static struct imu_data_t {
+    int16_t acc_x[LSM9DS1_FIFO_THS];
+    int16_t acc_y[LSM9DS1_FIFO_THS];
+    int16_t acc_z[LSM9DS1_FIFO_THS];
+    int16_t gyr_x[LSM9DS1_FIFO_THS];
+    int16_t gyr_y[LSM9DS1_FIFO_THS];
+    int16_t gyr_z[LSM9DS1_FIFO_THS];
+} imu_data;
+
 
 // Feature data Struct
 static union features_data_t {
@@ -117,8 +131,8 @@ void send_to_all(void) {
         // Set the connection handle
         p_mas->conn_handle = conn_handles.conn_handles[i];
 
-        ble_mas_accelerometer_measurement_send(p_mas, lsm9ds1.ax, lsm9ds1.ay, lsm9ds1.az);
-        ble_mas_gyroscope_measurement_send(p_mas, lsm9ds1.gx, lsm9ds1.gy, lsm9ds1.gz);
+        ble_mas_accelerometer_bulk_send(p_mas, &imu_data.acc_x, &imu_data.acc_y, &imu_data.acc_z, LSM9DS1_FIFO_THS);
+        ble_mas_gyroscope_bulk_send(p_mas, &imu_data.gyr_x, &imu_data.gyr_y, &imu_data.gyr_z, LSM9DS1_FIFO_THS);
         ble_mas_features_send(p_mas, features_data.byte);
     }
 }
@@ -145,13 +159,31 @@ void set_passkey_type(void) {
  */
 void lsm9ds1_meas_timeout_handler(void * p_context) {
     p_mas = (ble_mas_t *) p_context;
-    lsm9ds1_readAccel(&lsm9ds1);
-    lsm9ds1_readGyro(&lsm9ds1);
-    lsm9ds1_readMag(&lsm9ds1);
-    lsm9ds1_readTemp(&lsm9ds1);
-    update_inactivity();
-    send_to_all();
-    set_passkey_type();
+
+    if(get_fifo_status()){
+        NRF_LOG_RAW_INFO("Samples in FIFO %d | INT 1 %d | INT 2 %d\n", lsm9ds1_getFIFOSamples(&lsm9ds1), nrf_gpio_pin_read(INT1_AG), nrf_gpio_pin_read(INT2_AG));
+        
+        lsm9ds1_readMag(&lsm9ds1);
+        lsm9ds1_readTemp(&lsm9ds1);
+
+        for(uint8_t i=0; i < LSM9DS1_FIFO_THS; i++) {
+            lsm9ds1_readAccel(&lsm9ds1);
+            lsm9ds1_readGyro(&lsm9ds1);
+            imu_data.acc_x[i] = lsm9ds1.ax;
+            imu_data.acc_y[i] = lsm9ds1.ay;
+            imu_data.acc_z[i] = lsm9ds1.az;
+            imu_data.gyr_x[i] = lsm9ds1.gx;
+            imu_data.gyr_y[i] = lsm9ds1.gy;
+            imu_data.gyr_z[i] = lsm9ds1.gz;
+            // NRF_LOG_RAW_INFO("[%d] ", i);
+            // NRF_LOG_RAW_INFO("Acc: %d, %d, %d || Gyr: %d, %d, %d\n", imu_data.acc_x[i], imu_data.acc_y[i], imu_data.acc_z[i], imu_data.gyr_x[i], imu_data.gyr_y[i], imu_data.gyr_z[i]);
+        }
+        NRF_LOG_RAW_INFO("Samples in FIFO %2d | INT 1 %d | INT 2 %d\n", lsm9ds1_getFIFOSamples(&lsm9ds1), nrf_gpio_pin_read(INT1_AG), nrf_gpio_pin_read(INT2_AG));
+        
+        update_inactivity();
+        send_to_all();
+        set_passkey_type();
+    }
 }
 
 /**@brief Monitor Activity Control Point event handler type.
@@ -273,6 +305,48 @@ static void gpio_configure(void)
     nrf_gpio_cfg_input(INT2_AG, NRF_GPIO_PIN_NOPULL);
 }
 
+/**
+ * @brief Get the fifo status
+ * 
+ * @return uint8_t 1: The FIFO is full 
+ *                 0: The FIFO is empty
+ */
+uint8_t get_fifo_status(void) {
+    return is_fifo_full;
+};
+
+/**
+ * @brief Set the fifo status
+ * 
+ * @param status uint8_t 1: The FIFO is full 
+ *                       0: The FIFO is empty
+ */
+void set_fifo_status(uint8_t status) {
+    is_fifo_full = status;
+};
+
+void gpiote_handler(nrfx_gpiote_pin_t pin, nrf_gpiote_polarity_t action) {
+    NRF_LOG_INFO("Inside GPIOTE handler. Pin number: %d. Polarity: %d", pin, nrf_gpio_pin_read(INT2_AG));
+    set_fifo_status(nrf_gpio_pin_read(INT2_AG));
+}
+
+
+/**@brief Function for configuring the GPIOTE.
+ */
+static void gpiote_configure(void)
+{
+    ret_code_t err_code;
+    const nrfx_gpiote_in_config_t nrfx_gpiote_in_config = NRFX_GPIOTE_CONFIG_IN_SENSE_TOGGLE(false);
+
+    NRF_LOG_INFO("Configuring GPIOTE");
+    err_code = nrfx_gpiote_init();
+    APP_ERROR_CHECK(err_code);
+    nrfx_gpiote_in_init(INT2_AG,  &nrfx_gpiote_in_config, gpiote_handler);
+    nrfx_gpiote_in_event_enable(INT2_AG, true);
+    // nrf_gpio_cfg_input(INT1_AG, NRF_GPIO_PIN_NOPULL);
+    // nrf_gpio_cfg_input(INT2_AG, NRF_GPIO_PIN_NOPULL);
+}
+
 
 /**@brief Function for initialize the IMU.
  */
@@ -288,8 +362,14 @@ static void imu_init(void)
     lsm9ds1_configAccelInt(&lsm9ds1, XLIE_XL, false);
     lsm9ds1_configInt(&lsm9ds1, XG_INT1, INT_IG_XL, INT_ACTIVE_HIGH, INT_PUSH_PULL);
 
+    // Configure FIFO
+    lsm9ds1_setFIFO(&lsm9ds1, FIFO_OFF, 0);
+    lsm9ds1_setFIFO(&lsm9ds1, FIFO_CONT, 15);
+    lsm9ds1_enableFIFO(&lsm9ds1, true);
+
     // Configure the inactivity interrupt output pin
-    lsm9ds1_configInt(&lsm9ds1, XG_INT2, INT2_INACT, INT_ACTIVE_HIGH, INT_PUSH_PULL);
+    // lsm9ds1_configInt(&lsm9ds1, XG_INT2, INT2_INACT, INT_ACTIVE_HIGH, INT_PUSH_PULL);
+    lsm9ds1_configInt(&lsm9ds1, XG_INT2, INT_FTH, INT_ACTIVE_HIGH, INT_PUSH_PULL);
 }
 
 /**@brief Function for initialize the sensor and peripherals.
@@ -298,7 +378,8 @@ void sensors_init(void) {
     // Configure peripherals
     adc_configure();
     twim_configure();
-    gpio_configure();
+    // gpio_configure();
+    gpiote_configure();
 
     // Init sensors
     imu_init();

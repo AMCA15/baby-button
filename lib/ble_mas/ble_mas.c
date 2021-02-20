@@ -19,8 +19,8 @@
 #define BLE_UUID_MAS_FEAT_CHARACTERISTIC                 0x0004     /**< The UUID of the Feature Characteristic. */
 #define BLE_UUID_MONITOR_ACTIVITY_CONTROL_POINT_CHAR     0x0100     /**< Monitor Activity Control Point characteristic UUID. */
 
-#define BLE_MAS_MAX_ACC_CHAR_LEN        6                    /**< Maximum length of the Acceletometer Characteristic (in bytes). */
-#define BLE_MAS_MAX_GYR_CHAR_LEN        6                    /**< Maximum length of the Gyroscope Characteristic (in bytes). */
+#define BLE_MAS_MAX_ACC_CHAR_LEN        96                    /**< Maximum length of the Acceletometer Characteristic (in bytes). */
+#define BLE_MAS_MAX_GYR_CHAR_LEN        96                    /**< Maximum length of the Gyroscope Characteristic (in bytes). */
 #define BLE_MAS_MAX_FEAT_CHAR_LEN       1                    /**< Maximum length of the Feature Characteristic (in bytes). */
 #define BLE_MACP_MAX_GYR_CHAR_LEN       1                    /**< Maximum length of the Monitor Activity Control Point Characteristic (in bytes). */
 
@@ -374,6 +374,121 @@ uint32_t ble_mas_gyroscope_measurement_send(ble_mas_t * p_mas, int16_t gyr_x, ui
         len += uint16_big_encode(gyr_x, &encoded_mas[len]);
         len += uint16_big_encode(gyr_y, &encoded_mas[len]);
         len += uint16_big_encode(gyr_z, &encoded_mas[len]);
+
+        len = sizeof(encoded_mas);
+
+        hvx_len = len;
+
+        memset(&hvx_params, 0, sizeof(hvx_params));
+
+        hvx_params.handle = p_mas->gyroscope_handles.value_handle;
+        hvx_params.type   = BLE_GATT_HVX_NOTIFICATION;
+        hvx_params.offset = 0;
+        hvx_params.p_len  = &hvx_len;
+        hvx_params.p_data = encoded_mas;
+
+        err_code = sd_ble_gatts_hvx(p_mas->conn_handle, &hvx_params);
+        if ((err_code == NRF_SUCCESS) && (hvx_len != len))
+        {
+            err_code = NRF_ERROR_DATA_SIZE;
+        }
+    }
+    else
+    {
+        err_code = NRF_ERROR_INVALID_STATE;
+    }
+
+    return err_code;
+}
+
+
+uint32_t ble_mas_accelerometer_bulk_send(ble_mas_t * p_mas, int16_t * acc_x, uint16_t * acc_y, uint16_t * acc_z, uint8_t length)
+{
+    uint32_t err_code;
+
+    // Send value if connected and notifying
+    if (p_mas->conn_handle != BLE_CONN_HANDLE_INVALID)
+    {
+        uint8_t                encoded_mas[BLE_MAS_MAX_ACC_CHAR_LEN];
+        uint16_t               len;
+        uint16_t               hvx_len;
+        ble_gatts_hvx_params_t hvx_params;
+
+        // len = 0;
+        // len += uint16_big_encode(acc_x, &encoded_mas[len]);
+        // len += uint16_big_encode(acc_y, &encoded_mas[len]);
+        // len += uint16_big_encode(acc_z, &encoded_mas[len]);
+
+
+        // for(uint8_t i=0; i < length; i++) {
+        //     NRF_LOG_RAW_INFO("%04x, %04x, %04x, ", acc_x[i], acc_y[i], acc_z[i]);
+        // }
+        // NRF_LOG_RAW_INFO("\n");
+
+        len = 0;
+        for(uint8_t i=0; i < length; i++) {
+            len += uint16_big_encode(acc_x[i], &encoded_mas[len]);
+            len += uint16_big_encode(acc_y[i], &encoded_mas[len]);
+            len += uint16_big_encode(acc_z[i], &encoded_mas[len]);
+        }
+        
+        // for(uint8_t i=0, len=0; i<length;i++, len+=6){
+        //     NRF_LOG_RAW_INFO("[e] %02x %02x, %02x %02x, %02x %02x\n", encoded_mas[len], encoded_mas[len+1], encoded_mas[len+2],
+        //                                                     encoded_mas[len+3], encoded_mas[len+4], encoded_mas[len+5]);
+        // }
+
+        len = sizeof(encoded_mas);
+
+        hvx_len = len;
+
+        memset(&hvx_params, 0, sizeof(hvx_params));
+
+        hvx_params.handle = p_mas->accelerometer_handles.value_handle;
+        hvx_params.type   = BLE_GATT_HVX_NOTIFICATION;
+        hvx_params.offset = 0;
+        hvx_params.p_len  = &hvx_len;
+        hvx_params.p_data = encoded_mas;
+
+        err_code = sd_ble_gatts_hvx(p_mas->conn_handle, &hvx_params);
+        if ((err_code == NRF_SUCCESS) && (hvx_len != len))
+        {
+            err_code = NRF_ERROR_DATA_SIZE;
+        }
+    }
+    else
+    {
+        err_code = NRF_ERROR_INVALID_STATE;
+    }
+
+    return err_code;
+}
+
+
+uint32_t ble_mas_gyroscope_bulk_send(ble_mas_t * p_mas, int16_t * gyr_x, uint16_t * gyr_y, uint16_t * gyr_z, uint8_t length)
+{
+    uint32_t err_code;
+
+    // Send value if connected and notifying
+    if (p_mas->conn_handle != BLE_CONN_HANDLE_INVALID)
+    {
+        uint8_t                encoded_mas[BLE_MAS_MAX_GYR_CHAR_LEN];
+        uint16_t               len;
+        uint16_t               hvx_len;
+        ble_gatts_hvx_params_t hvx_params;
+
+        // len = 0;
+        // len += uint16_big_encode(gyr_x, &encoded_mas[len]);
+        // len += uint16_big_encode(gyr_y, &encoded_mas[len]);
+        // len += uint16_big_encode(gyr_z, &encoded_mas[len]);
+
+
+        len = 0;
+        for(uint8_t i=0; i < length; i++) {
+            len += uint16_big_encode(gyr_x[i], &encoded_mas[len]);
+            len += uint16_big_encode(gyr_y[i], &encoded_mas[len]);
+            len += uint16_big_encode(gyr_z[i], &encoded_mas[len]);
+        }
+
 
         len = sizeof(encoded_mas);
 

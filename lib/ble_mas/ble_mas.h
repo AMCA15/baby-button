@@ -158,6 +158,38 @@ uint32_t ble_mas_accelerometer_measurement_send(ble_mas_t * p_mas, int16_t acc_x
 uint32_t ble_mas_gyroscope_measurement_send(ble_mas_t * p_mas, int16_t gyr_x, uint16_t gyr_y, uint16_t gyr_z);
 
 
+/**@brief Function for sending accelerometer measurement if notification has been enabled.
+ *
+ * @details The application calls this function after having performed an acceleration measurement.
+ *          If notification has been enabled, the acceleration measurement data is encoded and sent to
+ *          the client.
+ *
+ * @param[in]   p_mas                    Monitor Activity Service structure.
+ * @param[in]   acc_x                    New acceleration measurement on X axis.
+ * @param[in]   acc_y                    New acceleration measurement on Y axis.
+ * @param[in]   acc_z                    New acceleration measurement on Z axis.
+ *
+ * @return      NRF_SUCCESS on success, otherwise an error code.
+ */
+uint32_t ble_mas_accelerometer_bulk_send(ble_mas_t * p_mas, int16_t *acc_x, uint16_t *acc_y, uint16_t *acc_z, uint8_t length);
+
+
+/**@brief Function for sending gyroscope measurement if notification has been enabled.
+ *
+ * @details The application calls this function after having performed an angular velocity measurement.
+ *          If notification has been enabled, the angular velocity measurement data is encoded and sent to
+ *          the client.
+ *
+ * @param[in]   p_mas                    Monitor Activity Service structure.
+ * @param[in]   gyr_x                    New angular velocity measurement on X axis.
+ * @param[in]   gyr_y                    New angular velocity measurement on Y axis.
+ * @param[in]   gyr_z                    New angular velocity measurement on Z axis.
+ *
+ * @return      NRF_SUCCESS on success, otherwise an error code.
+ */
+uint32_t ble_mas_gyroscope_bulk_send(ble_mas_t * p_mas, int16_t *gyr_x, uint16_t *gyr_y, uint16_t *gyr_z, uint8_t length);
+
+
 /**@brief Function for sending features data if notification has been enabled.
  *
  * @details The application calls this function after having performed any features data update.
