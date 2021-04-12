@@ -101,7 +101,7 @@
 #define HARDWARE_REV                    "A"                                     /**< Hardware revision. Will be passed to Device Information Service. */
 #define FIRMWARE_REV                    "1.0"                                   /**< Firmware revision. Will be passed to Device Information Service. */
 
-#define APP_ADV_INTERVAL                300                                     /**< The advertising interval (in units of 0.625 ms. This value corresponds to 187.5 ms). */
+#define APP_ADV_INTERVAL                1600                                    /**< The advertising interval (in units of 0.625 ms. This value corresponds to 1s). */
 #define APP_ADV_DURATION                18000                                   /**< The advertising duration (180 seconds) in units of 10 milliseconds. */
 #define APP_BLE_OBSERVER_PRIO           3                                       /**< Application's BLE observer priority. You shouldn't need to modify this value. */
 #define APP_BLE_CONN_CFG_TAG            1                                       /**< A tag identifying the SoftDevice BLE configuration. */
@@ -466,6 +466,20 @@ static void application_timers_start(void)
 
 }
 
+/**@brief Function for stoping timers.
+ */
+static void application_timers_stop(void)
+{
+    ret_code_t err_code;
+    err_code = app_timer_stop(m_battery_timer_id);
+    APP_ERROR_CHECK(err_code);
+    /* YOUR_JOB: Start your timers. below is an example of how to start a timer.
+       ret_code_t err_code;
+       err_code = app_timer_start(m_app_timer_id, TIMER_INTERVAL, NULL);
+       APP_ERROR_CHECK(err_code); */
+
+}
+
 
 /**@brief Function for putting the chip into sleep mode.
  *
@@ -540,6 +554,11 @@ static void on_connected(const ble_gap_evt_t * const p_gap_evt)
         }
     }
 
+    if(periph_link_cnt == 1) {
+        NRF_LOG_INFO("INIT SENSORS");
+        sensors_init();
+    }
+
     if (periph_link_cnt == NRF_SDH_BLE_PERIPHERAL_LINK_COUNT)
     {
         NRF_LOG_INFO("Max link count reached");
@@ -563,6 +582,11 @@ static void on_disconnected(ble_gap_evt_t const * const p_gap_evt)
     NRF_LOG_INFO("Connection 0x%x has been disconnected. Reason: 0x%X",
                  p_gap_evt->conn_handle,
                  p_gap_evt->params.disconnected.reason);
+                 
+    if(periph_link_cnt == 0) {
+        NRF_LOG_INFO("UNINIT SENSORS");
+        sensors_uninit();
+    }
 
     if (periph_link_cnt == (NRF_SDH_BLE_PERIPHERAL_LINK_COUNT - 1))
     {
@@ -885,7 +909,7 @@ int main(void)
     APP_ERROR_CHECK(err_code);
 
     timers_init();
-    sensors_init();
+    // sensors_init();
     // buttons_leds_init(&erase_bonds);
     power_management_init();
     ble_stack_init();

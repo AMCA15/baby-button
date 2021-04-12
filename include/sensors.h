@@ -44,5 +44,13 @@ void macp_evt_handler (uint8_t * data, uint8_t size);
  */
 void sensors_init(void);
 
+/**@brief Function for uninitialize the sensors and peripherals.
+ */
+void sensors_uninit(void);
+
+/**@brief Function for resume the sensors and peripherals.
+ */
+void sensors_resume(void);
+
 
 #endif // SENSORS_H__

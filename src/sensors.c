@@ -99,6 +99,9 @@ static union features_data_t {
     uint8_t byte;
 } features_data;
 
+
+static void adc_configure(void);
+
 /**@brief Function for handling the Battery measurement timer timeout.
  *
  * @details This function will be called each time the battery level measurement timer expires.
@@ -110,6 +113,7 @@ static union features_data_t {
 void battery_level_meas_timeout_handler(void * p_context) {
     ret_code_t err_code;
     p_bas = (ble_bas_t *) p_context;
+    adc_configure();
     err_code = nrfx_saadc_sample();
     APP_ERROR_CHECK(err_code);
 }
@@ -293,6 +297,7 @@ void saadc_event_handler(nrfx_saadc_evt_t const * p_event)
         {
             APP_ERROR_HANDLER(err_code);
         }
+        nrfx_saadc_uninit();
     }
 }
 
@@ -334,14 +339,6 @@ static void twim_configure(void)
     err_code = nrfx_twim_init(&nrfx_twim, &nrfx_twim_config, NULL, NULL);
     APP_ERROR_CHECK(err_code);
     nrfx_twim_enable(&nrfx_twim);
-}
-
-/**@brief Function for configuring the GPIO.
- */
-static void gpio_configure(void)
-{
-    nrf_gpio_cfg_input(INT1_AG, NRF_GPIO_PIN_NOPULL);
-    nrf_gpio_cfg_input(INT2_AG, NRF_GPIO_PIN_NOPULL);
 }
 
 
@@ -395,13 +392,32 @@ static void imu_init(void)
     lsm9ds1_configInt(&lsm9ds1, XG_INT2, INT_FTH, INT_ACTIVE_HIGH, INT_PUSH_PULL);
 }
 
+static void imu_uninit(void) {
+    // Reboot accelerometer and gyroscope memory content
+    lsm9ds1_xgWriteByte(&lsm9ds1, CTRL_REG8, 0x01);
+    
+    // Reboot magnetic sensor memory content
+    lsm9ds1_mWriteByte(&lsm9ds1, CTRL_REG2_M, 0x04);
+}
+
+void sensors_uninit(void) {
+    nrfx_gpiote_uninit();
+    imu_uninit();
+    nrfx_twim_uninit(&nrfx_twim);
+}
+
+void sensors_resume(void) {
+    gpiote_configure();
+    imu_init();
+    // nrfx_twim_enable(&nrfx_twim);
+}
+
 /**@brief Function for initialize the sensor and peripherals.
  */
 void sensors_init(void) {
     // Configure peripherals
-    adc_configure();
+    // adc_configure();
     twim_configure();
-    // gpio_configure();
     gpiote_configure();
 
     // Init sensors
